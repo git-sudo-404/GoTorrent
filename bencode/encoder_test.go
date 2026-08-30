@@ -21,3 +21,54 @@
  */
 
 package bencode
+
+import (
+	"testing"
+)
+
+func TestEncodeInteger(t *testing.T) {
+	got := encodeInteger(13)
+	want := []byte("i13e")
+	if string(got) != string(want) {
+		t.Errorf("Got %s | Want %s", got, want)
+	} else {
+		t.Log("[PASS] : encodeInteger()")
+	}
+}
+
+func TestEncodeString(t *testing.T) {
+	got := encodeString("hi")
+	want := []byte("2:hi")
+	if string(got) != string(want) {
+		t.Errorf("Got %s | Want %s", got, want)
+	} else {
+		t.Log("[PASS] : encodeString()")
+	}
+}
+
+func TestEncodeList(t *testing.T) {
+	got := encodeList([]any{13, "hi"})
+	want := "li13e2:hie"
+	if string(got) != string(want) {
+		t.Errorf("Got %s | Want %s", got, want)
+	} else {
+		t.Log("[PASS] : encodeList()")
+	}
+}
+
+func TestEncodeDict(t *testing.T) {
+	got := encodeDict(map[string]any{
+		"key1": 13,
+		"key2": "hi",
+		"key3": []any{12, "hi"},
+		"key4": map[string]any{
+			"k5": 1,
+		},
+	})
+	want := []byte("d4:key1i13e4:key22:hi4:key3li12e2:hie4:key4d2:k5i1eee")
+	if string(got) != string(want) {
+		t.Errorf("Got %s | Want %s", got, want)
+	} else {
+		t.Log("[PASS] : encodeDict()")
+	}
+}
