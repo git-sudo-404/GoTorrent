@@ -21,3 +21,7 @@
  */
 
 package bencode
+
+func TestDecodeInt(t *testing.T) {
+	got := decodeInt()
+}

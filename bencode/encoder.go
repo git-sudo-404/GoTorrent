@@ -98,6 +98,16 @@ func (e *Encoder) encodeDict(dict map[string]any) {
 	e.WriteByte('e')
 }
 
+//NOTE: This can even be done without this contsructor function , but then the application layer calls would look like
+// encodedBuffer1 := bencode.Encode(...)
+// encodedBuffer2 := bencode.Encode(...)
+// -> this creates a new buffer everytime you call Encode() , this puts pressure on GO's garbage collector.
+// So , it is better to have a contsructor and reuse the same buffer for all the Encode() like ,
+// encoder,err := bencode.CreateNewEncoder()
+// encodedBuffer1 := encoder.Encode(...)
+// encodedBuffer2 := encoder.Encode(...)
+// This just uses the same bytes.Buffer , reducing the stress on GO's GC
+
 func CreateNewEncoder() *Encoder {
 	return &Encoder{
 		bytes.Buffer{},
