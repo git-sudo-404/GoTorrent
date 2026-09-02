@@ -32,42 +32,42 @@ type encoder struct {
 	bytes.Buffer
 }
 
-func (e *encoder) writeInt(num int64) {
+func (e *encoder) encodeInt(num int64) {
 	e.WriteByte('i')
 	e.WriteString(strconv.FormatInt(num, 10))
 	e.WriteByte('e')
 }
 
-func (e *encoder) writeUint(num uint64) {
+func (e *encoder) encodeUint(num uint64) {
 	e.WriteByte('i')
 	e.WriteString(strconv.FormatUint(num, 10))
 	e.WriteByte('e')
 }
 
-func (e *encoder) writeString(str string) {
+func (e *encoder) encodeString(str string) {
 	e.WriteString(strconv.Itoa(len(str)))
 	e.WriteByte(':')
 	e.WriteString(str)
 }
 
-func (e *encoder) writeList(list []any) {
+func (e *encoder) encodeList(list []any) {
 	e.WriteByte('l')
 	for _, item := range list {
 		switch v := item.(type) {
 		case int64:
-			e.writeInt(v)
+			e.encodeInt(v)
 		case uint64:
-			e.writeUint(v)
+			e.encodeUint(v)
 		case string:
-			e.writeString(v)
+			e.encodeString(v)
 		case []any:
-			e.writeList(v)
+			e.encodeList(v)
 		}
 	}
 	e.WriteByte('e')
 }
 
-func (e *encoder) writeDict(dict map[string]any) {
+func (e *encoder) encodeDict(dict map[string]any) {
 	e.WriteByte('d')
 
 	var keys []string
@@ -79,18 +79,18 @@ func (e *encoder) writeDict(dict map[string]any) {
 	})
 
 	for _, key := range keys {
-		e.writeString(key)
+		e.encodeString(key)
 		switch v := dict[key].(type) {
 		case int64:
-			e.writeInt(v)
+			e.encodeInt(v)
 		case uint64:
-			e.writeUint(v)
+			e.encodeUint(v)
 		case string:
-			e.writeString(v)
+			e.encodeString(v)
 		case []any:
-			e.writeList(v)
+			e.encodeList(v)
 		case map[string]any:
-			e.writeDict(v)
+			e.encodeDict(v)
 		}
 	}
 

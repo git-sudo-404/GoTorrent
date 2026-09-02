@@ -28,7 +28,7 @@ func TestWriteInt(t *testing.T) {
 	e := CreateNewEncoder()
 	var num int64
 	num = 10
-	e.writeInt(num)
+	e.encodeInt(num)
 
 	got := e.getEncodedString()
 	want := "i10e"
@@ -42,7 +42,7 @@ func TestWriteUint(t *testing.T) {
 	e := CreateNewEncoder()
 	var num uint64
 	num = 10
-	e.writeUint(num)
+	e.encodeUint(num)
 
 	got := e.getEncodedString()
 	want := "i10e"
@@ -56,7 +56,7 @@ func TestWriteString(t *testing.T) {
 	e := CreateNewEncoder()
 	var str string
 	str = "hi"
-	e.writeString(str)
+	e.encodeString(str)
 
 	got := e.getEncodedString()
 	want := "2:hi"
@@ -69,7 +69,7 @@ func TestWriteString(t *testing.T) {
 func TestWriteList(t *testing.T) {
 	e := CreateNewEncoder()
 	list := []any{int64(10), "hi", []any{uint64(20)}}
-	e.writeList(list)
+	e.encodeList(list)
 
 	got := e.getEncodedString()
 	want := "li10e2:hili20eee"
@@ -88,7 +88,7 @@ func TestWriteDict(t *testing.T) {
 	dict["key3"] = "hello"
 	dict["key4"] = []any{int64(10), "hi", []any{uint64(20)}}
 	dict["key5"] = map[string]any{"key6": []any{int64(30)}}
-	e.writeDict(dict)
+	e.encodeDict(dict)
 
 	got := e.getEncodedString()
 	want := "d4:key1i10e4:key2i20e4:key35:hello4:key4li10e2:hili20eee4:key5d4:key6li30eeee"
