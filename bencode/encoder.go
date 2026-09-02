@@ -24,33 +24,34 @@ package bencode
 
 import (
 	"bytes"
+	"fmt"
 	"sort"
 	"strconv"
 )
 
-type encoder struct {
+type Encoder struct {
 	bytes.Buffer
 }
 
-func (e *encoder) encodeInt(num int64) {
+func (e *Encoder) encodeInt(num int64) {
 	e.WriteByte('i')
 	e.WriteString(strconv.FormatInt(num, 10))
 	e.WriteByte('e')
 }
 
-func (e *encoder) encodeUint(num uint64) {
+func (e *Encoder) encodeUint(num uint64) {
 	e.WriteByte('i')
 	e.WriteString(strconv.FormatUint(num, 10))
 	e.WriteByte('e')
 }
 
-func (e *encoder) encodeString(str string) {
+func (e *Encoder) encodeString(str string) {
 	e.WriteString(strconv.Itoa(len(str)))
 	e.WriteByte(':')
 	e.WriteString(str)
 }
 
-func (e *encoder) encodeList(list []any) {
+func (e *Encoder) encodeList(list []any) {
 	e.WriteByte('l')
 	for _, item := range list {
 		switch v := item.(type) {
@@ -67,7 +68,7 @@ func (e *encoder) encodeList(list []any) {
 	e.WriteByte('e')
 }
 
-func (e *encoder) encodeDict(dict map[string]any) {
+func (e *Encoder) encodeDict(dict map[string]any) {
 	e.WriteByte('d')
 
 	var keys []string
@@ -97,12 +98,34 @@ func (e *encoder) encodeDict(dict map[string]any) {
 	e.WriteByte('e')
 }
 
-func CreateNewEncoder() *encoder {
-	return &encoder{
+func CreateNewEncoder() *Encoder {
+	return &Encoder{
 		bytes.Buffer{},
 	}
 }
 
-func (e *encoder) getEncodedString() string {
+func (e *Encoder) getEncodedString() string {
 	return e.String()
+}
+
+func (e *Encoder) getEncodedBytes() []byte {
+	return e.Bytes()
+}
+
+func (e *Encoder) Encode(data any) error {
+	switch v := data.(type) {
+	case int64:
+		e.encodeInt(v)
+	case uint64:
+		e.encodeUint(v)
+	case string:
+		e.encodeString(v)
+	case []any:
+		e.encodeList(v)
+	case map[string]any:
+		e.encodeDict(v)
+	default:
+		return fmt.Errorf("bencode: unsupported data type: %T", data)
+	}
+	return nil
 }

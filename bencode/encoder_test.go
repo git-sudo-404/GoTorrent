@@ -24,7 +24,7 @@ package bencode
 
 import "testing"
 
-func TestWriteInt(t *testing.T) {
+func TestEncodeInt(t *testing.T) {
 	e := CreateNewEncoder()
 	var num int64
 	num = 10
@@ -38,7 +38,7 @@ func TestWriteInt(t *testing.T) {
 	}
 }
 
-func TestWriteUint(t *testing.T) {
+func TestEncodeUint(t *testing.T) {
 	e := CreateNewEncoder()
 	var num uint64
 	num = 10
@@ -52,7 +52,7 @@ func TestWriteUint(t *testing.T) {
 	}
 }
 
-func TestWriteString(t *testing.T) {
+func TestEncodeString(t *testing.T) {
 	e := CreateNewEncoder()
 	var str string
 	str = "hi"
@@ -66,7 +66,7 @@ func TestWriteString(t *testing.T) {
 	}
 }
 
-func TestWriteList(t *testing.T) {
+func TestEncodeList(t *testing.T) {
 	e := CreateNewEncoder()
 	list := []any{int64(10), "hi", []any{uint64(20)}}
 	e.encodeList(list)
@@ -79,7 +79,7 @@ func TestWriteList(t *testing.T) {
 	}
 }
 
-func TestWriteDict(t *testing.T) {
+func TestEncodeDict(t *testing.T) {
 	e := CreateNewEncoder()
 	var dict map[string]any
 	dict = map[string]any{}
@@ -89,6 +89,80 @@ func TestWriteDict(t *testing.T) {
 	dict["key4"] = []any{int64(10), "hi", []any{uint64(20)}}
 	dict["key5"] = map[string]any{"key6": []any{int64(30)}}
 	e.encodeDict(dict)
+
+	got := e.getEncodedString()
+	want := "d4:key1i10e4:key2i20e4:key35:hello4:key4li10e2:hili20eee4:key5d4:key6li30eeee"
+
+	if string(got) != string(want) {
+		t.Errorf("\nGOT  : %s\nWANT : %s", got, want)
+	}
+}
+
+func TestEncodeSwitchInt(t *testing.T) {
+	e := CreateNewEncoder()
+	var num int64
+	num = 10
+	e.Encode(num)
+
+	got := e.getEncodedString()
+	want := "i10e"
+
+	if string(got) != string(want) {
+		t.Errorf("\bGOT  : %s\nWANT : %s", got, want)
+	}
+}
+
+func TestEncodeSwitchUint(t *testing.T) {
+	e := CreateNewEncoder()
+	var num uint64
+	num = 10
+	e.Encode(num)
+
+	got := e.getEncodedString()
+	want := "i10e"
+
+	if string(got) != string(want) {
+		t.Errorf("\nGOT  : %s\nWANT : %s", got, want)
+	}
+}
+
+func TestEncodeSwitchString(t *testing.T) {
+	e := CreateNewEncoder()
+	var str string
+	str = "hi"
+	e.Encode(str)
+
+	got := e.getEncodedString()
+	want := "2:hi"
+
+	if string(got) != string(want) {
+		t.Errorf("\nGOT  : %s\nWANT : %s", got, want)
+	}
+}
+
+func TestEncodeSwitchList(t *testing.T) {
+	e := CreateNewEncoder()
+	list := []any{int64(10), "hi", []any{uint64(20)}}
+	e.Encode(list)
+
+	got := e.getEncodedString()
+	want := "li10e2:hili20eee"
+
+	if string(got) != string(want) {
+		t.Errorf("\nGOT  : %s\nWANT : %s", got, want)
+	}
+}
+
+func TestEncodeSwitchDict(t *testing.T) {
+	e := CreateNewEncoder()
+	var dict map[string]any
+	dict = map[string]any{}
+	dict["key1"] = uint64(10)
+	dict["key2"] = int64(20)
+	dict["key3"] = "hello"
+	dict["key4"] = []any{int64(10), "hi", []any{uint64(20)}}
+	dict["key5"] = map[string]any{"key6": []any{int64(30)}}
+	e.Encode(dict)
 
 	got := e.getEncodedString()
 	want := "d4:key1i10e4:key2i20e4:key35:hello4:key4li10e2:hili20eee4:key5d4:key6li30eeee"
