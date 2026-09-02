@@ -22,53 +22,78 @@
 
 package bencode
 
-import (
-	"testing"
-)
+import "testing"
 
-func TestEncodeInteger(t *testing.T) {
-	got := encodeInteger(13)
-	want := []byte("i13e")
+func TestWriteInt(t *testing.T) {
+	e := CreateNewEncoder()
+	var num int64
+	num = 10
+	e.writeInt(num)
+
+	got := e.getEncodedString()
+	want := "i10e"
+
 	if string(got) != string(want) {
-		t.Errorf("Got %s | Want %s", got, want)
-	} else {
-		t.Log("[PASS] : encodeInteger()")
+		t.Errorf("\bGOT  : %s\nWANT : %s", got, want)
 	}
 }
 
-func TestEncodeString(t *testing.T) {
-	got := encodeString("hi")
-	want := []byte("2:hi")
+func TestWriteUint(t *testing.T) {
+	e := CreateNewEncoder()
+	var num uint64
+	num = 10
+	e.writeUint(num)
+
+	got := e.getEncodedString()
+	want := "i10e"
+
 	if string(got) != string(want) {
-		t.Errorf("Got %s | Want %s", got, want)
-	} else {
-		t.Log("[PASS] : encodeString()")
+		t.Errorf("\nGOT  : %s\nWANT : %s", got, want)
 	}
 }
 
-func TestEncodeList(t *testing.T) {
-	got := encodeList([]any{13, "hi"})
-	want := "li13e2:hie"
+func TestWriteString(t *testing.T) {
+	e := CreateNewEncoder()
+	var str string
+	str = "hi"
+	e.writeString(str)
+
+	got := e.getEncodedString()
+	want := "2:hi"
+
 	if string(got) != string(want) {
-		t.Errorf("Got %s | Want %s", got, want)
-	} else {
-		t.Log("[PASS] : encodeList()")
+		t.Errorf("\nGOT  : %s\nWANT : %s", got, want)
 	}
 }
 
-func TestEncodeDict(t *testing.T) {
-	got := encodeDict(map[string]any{
-		"key1": 13,
-		"key2": "hi",
-		"key3": []any{12, "hi"},
-		"key4": map[string]any{
-			"k5": 1,
-		},
-	})
-	want := []byte("d4:key1i13e4:key22:hi4:key3li12e2:hie4:key4d2:k5i1eee")
+func TestWriteList(t *testing.T) {
+	e := CreateNewEncoder()
+	list := []any{int64(10), "hi", []any{uint64(20)}}
+	e.writeList(list)
+
+	got := e.getEncodedString()
+	want := "li10e2:hili20eee"
+
 	if string(got) != string(want) {
-		t.Errorf("Got %s | Want %s", got, want)
-	} else {
-		t.Log("[PASS] : encodeDict()")
+		t.Errorf("\nGOT  : %s\nWANT : %s", got, want)
+	}
+}
+
+func TestWriteDict(t *testing.T) {
+	e := CreateNewEncoder()
+	var dict map[string]any
+	dict = map[string]any{}
+	dict["key1"] = uint64(10)
+	dict["key2"] = int64(20)
+	dict["key3"] = "hello"
+	dict["key4"] = []any{int64(10), "hi", []any{uint64(20)}}
+	dict["key5"] = map[string]any{"key6": []any{int64(30)}}
+	e.writeDict(dict)
+
+	got := e.getEncodedString()
+	want := "d4:key1i10e4:key2i20e4:key35:hello4:key4li10e2:hili20eee4:key5d4:key6li30eeee"
+
+	if string(got) != string(want) {
+		t.Errorf("\nGOT  : %s\nWANT : %s", got, want)
 	}
 }

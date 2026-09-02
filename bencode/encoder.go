@@ -23,70 +23,86 @@
 package bencode
 
 import (
+	"bytes"
 	"sort"
 	"strconv"
 )
 
-func encodeInteger(num int) []byte { // <number> -> i<number>e
-	var result []byte
-	result = append(result, 'i')
-	result = append(result, strconv.Itoa(num)...)
-	result = append(result, 'e')
-	return result
+type encoder struct {
+	bytes.Buffer
 }
 
-func encodeString(s string) []byte { // <string> -> len(<string>):<string>
-	var result []byte
-	result = append(result, strconv.Itoa(len(s))...)
-	result = append(result, ':')
-	result = append(result, s...)
-	return result
+func (e *encoder) writeInt(num int64) {
+	e.WriteByte('i')
+	e.WriteString(strconv.FormatInt(num, 10))
+	e.WriteByte('e')
 }
 
-func encodeList(list []any) []byte { // <List> -> I<List>e
-	var result []byte
-	result = append(result, 'l')
+func (e *encoder) writeUint(num uint64) {
+	e.WriteByte('i')
+	e.WriteString(strconv.FormatUint(num, 10))
+	e.WriteByte('e')
+}
+
+func (e *encoder) writeString(str string) {
+	e.WriteString(strconv.Itoa(len(str)))
+	e.WriteByte(':')
+	e.WriteString(str)
+}
+
+func (e *encoder) writeList(list []any) {
+	e.WriteByte('l')
 	for _, item := range list {
 		switch v := item.(type) {
-		case int:
-			result = append(result, encodeInteger(v)...)
+		case int64:
+			e.writeInt(v)
+		case uint64:
+			e.writeUint(v)
 		case string:
-			result = append(result, encodeString(v)...)
+			e.writeString(v)
+		case []any:
+			e.writeList(v)
 		}
 	}
-	result = append(result, 'e')
-	return result
+	e.WriteByte('e')
 }
 
-func encodeDict(dict map[string]any) []byte { // <Dict> -> d<Key><Val>e
-	// Key -> only strings
-	// Value -> can be any of these [int, string, list, dict]
-	var result []byte
-	result = append(result, 'd')
+func (e *encoder) writeDict(dict map[string]any) {
+	e.WriteByte('d')
 
-	keys := make([]string, 0, len(dict))
+	var keys []string
 	for key, _ := range dict {
 		keys = append(keys, key)
 	}
-
 	sort.Slice(keys, func(i, j int) bool {
 		return keys[i] < keys[j]
 	})
 
 	for _, key := range keys {
-		result = append(result, encodeString(key)...)
-		value := dict[key]
-		switch v := value.(type) {
-		case int:
-			result = append(result, encodeInteger(v)...)
+		e.writeString(key)
+		switch v := dict[key].(type) {
+		case int64:
+			e.writeInt(v)
+		case uint64:
+			e.writeUint(v)
 		case string:
-			result = append(result, encodeString(v)...)
+			e.writeString(v)
 		case []any:
-			result = append(result, encodeList(v)...)
+			e.writeList(v)
 		case map[string]any:
-			result = append(result, encodeDict(v)...)
+			e.writeDict(v)
 		}
 	}
-	result = append(result, 'e')
-	return result
+
+	e.WriteByte('e')
+}
+
+func CreateNewEncoder() *encoder {
+	return &encoder{
+		bytes.Buffer{},
+	}
+}
+
+func (e *encoder) getEncodedString() string {
+	return e.String()
 }
