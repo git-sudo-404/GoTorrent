@@ -28,4 +28,4 @@ type decoder struct {
 	*bufio.Reader
 }
 
-func decodeInt()
+// func decodeInt()
