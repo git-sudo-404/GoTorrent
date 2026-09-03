@@ -63,6 +63,8 @@ func (e *Encoder) encodeList(list []any) {
 			e.encodeString(v)
 		case []any:
 			e.encodeList(v)
+		case map[string]any:
+			e.encodeDict(v)
 		}
 	}
 	e.WriteByte('e')
