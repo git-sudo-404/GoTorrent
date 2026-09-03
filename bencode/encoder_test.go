@@ -68,11 +68,11 @@ func TestEncodeString(t *testing.T) {
 
 func TestEncodeList(t *testing.T) {
 	e := CreateNewEncoder()
-	list := []any{int64(10), "hi", []any{uint64(20)}}
+	list := []any{int64(10), "hi", []any{uint64(20)}, map[string]any{"key1": "value1"}}
 	e.encodeList(list)
 
 	got := e.getEncodedString()
-	want := "li10e2:hili20eee"
+	want := "li10e2:hili20eed4:key16:value1ee"
 
 	if string(got) != string(want) {
 		t.Errorf("\nGOT  : %s\nWANT : %s", got, want)
