@@ -32,10 +32,10 @@ func checkFieldPresenceAndType[T any](metaInfoDict map[string]any, field string)
 	var zero T
 	value, ok := metaInfoDict[field]
 	if !ok {
-		return zero, fmt.Errorf("Meta-Info missing needed field")
+		return zero, fmt.Errorf("Meta-Info missing needed field : %s", field)
 	}
 	if v, ok := value.(T); !ok {
-		return zero, fmt.Errorf("Undesired field value type")
+		return zero, fmt.Errorf("Undesired field value type  , Field : %s ", field)
 	} else {
 		return v, nil
 	}
@@ -48,7 +48,7 @@ func checkOptionalFieldPresenceAndType[T any](metaInfoDict map[string]any, field
 		return zero, false, nil
 	}
 	if v, ok := value.(T); !ok {
-		return zero, false, fmt.Errorf("Undesired field value type")
+		return zero, false, fmt.Errorf("Undesired field value type , Field : %s ", field)
 	} else {
 		return v, true, nil
 	}
@@ -68,20 +68,30 @@ func CreateMetaInfoFromFile(filePath string) (*MetaInfo, error) {
 		return nil, fmt.Errorf("Error Decoding the meta-info file")
 	}
 
+	fmt.Print(metaInfoDict)
+
 	//NOTE:Standard .torrent files use space-separated keys
-	pieceLength, err := checkFieldPresenceAndType[int64](metaInfoDict, "piece length")
+	infoRaw, ok := metaInfoDict["info"]
+	if !ok {
+		panic(fmt.Errorf("info not in decoded meta-info file"))
+	}
+	info, ok := infoRaw.(map[string]any)
+	if !ok {
+		panic(fmt.Errorf("info not of desired type : map[string]any"))
+	}
+	pieceLength, err := checkFieldPresenceAndType[int64](info, "piece length")
 	if err != nil {
 		return nil, err
 	}
 	metaInfo.setPieceLength(pieceLength)
 
-	pieces, err := checkFieldPresenceAndType[string](metaInfoDict, "pieces")
+	pieces, err := checkFieldPresenceAndType[string](info, "pieces")
 	if err != nil {
 		return nil, err
 	}
 	metaInfo.setPieces(pieces)
 
-	private, present, err := checkOptionalFieldPresenceAndType[int64](metaInfoDict, "private")
+	private, present, err := checkOptionalFieldPresenceAndType[int64](info, "private")
 	if err != nil {
 		return nil, err
 	}
@@ -89,13 +99,13 @@ func CreateMetaInfoFromFile(filePath string) (*MetaInfo, error) {
 		metaInfo.setPrivate(private)
 	}
 
-	name, err := checkFieldPresenceAndType[string](metaInfoDict, "name")
+	name, err := checkFieldPresenceAndType[string](info, "name")
 	if err != nil {
 		return nil, err
 	}
 	metaInfo.setName(name)
 
-	length, err := checkFieldPresenceAndType[int64](metaInfoDict, "length")
+	length, err := checkFieldPresenceAndType[int64](info, "length")
 	if err != nil {
 		return nil, err
 	}
