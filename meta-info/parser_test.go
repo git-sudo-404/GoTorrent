@@ -70,7 +70,9 @@ func writeMetaInfoToFile(metaInfoDict map[string]any) error {
 	if err != nil {
 		panic(err)
 	}
-	defer metaInfoFile.Close()
+	defer func() {
+		metaInfoFile.Close()
+	}()
 
 	encoder := bencode.CreateNewEncoder()
 	if err := encoder.Encode(metaInfoDict); err != nil {
@@ -86,7 +88,9 @@ func writeMetaInfoToFile(metaInfoDict map[string]any) error {
 
 func TestCreateMetaInfoFromFile(t *testing.T) {
 	writeMetaInfoToFile(newMetaInfoDict())
-
+	defer func() {
+		os.Remove(getTestMetaInfoFilePath())
+	}()
 	metaInfo, err := CreateMetaInfoFromFile(getTestMetaInfoFilePath())
 	if err != nil {
 		panic(err)
