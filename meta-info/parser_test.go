@@ -227,3 +227,5 @@ func TestCreateMetaInfoFromFile_MissingOptionalFields(t *testing.T) {
 		t.Errorf("GetEncoding() = %v, err = %v; want empty string and non-nil error when omitted", val, err)
 	}
 }
+
+//TODO: Test the meta-info parsing with the real .torrent file in the testdata
