@@ -59,16 +59,12 @@ func (d *decoder) decodeString() (string, error) {
 	if err != nil {
 		panic(err)
 	}
-	var result string
-	for i := 0; i < int(lenNum); i++ {
-		oneByte, err := d.ReadByte()
-		if err != nil {
-			panic(err)
-		}
 
-		result = result + string(oneByte)
+	buf := make([]byte, lenNum)
+	if _, err := io.ReadFull(d, buf); err != nil {
+		panic(err)
 	}
-	return result, nil
+	return string(buf), nil
 }
 
 func (d *decoder) decodeList() ([]any, error) {

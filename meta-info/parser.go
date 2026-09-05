@@ -54,6 +54,40 @@ func checkOptionalFieldPresenceAndType[T any](metaInfoDict map[string]any, field
 	}
 }
 
+// since announce-list is optional this function returns an err if the announce list key is not found in the metaInfoDict
+func checkAnnounceListPresenceAndType(metaInfoDict map[string]any) ([][]string, bool, error) {
+
+	outerVal, ok := metaInfoDict["announce-list"]
+	if !ok {
+		return nil, false, nil
+	}
+
+	outerList, ok := outerVal.([]any)
+	if !ok {
+		return nil, false, fmt.Errorf("announce-list type does not match the required type")
+	}
+
+	var result [][]string
+
+	for _, innerVal := range outerList {
+		innerList, ok := innerVal.([]any)
+		if !ok {
+			return nil, false, fmt.Errorf("announce-list type does not meet the required type")
+		}
+		var innerResult []string
+		for _, items := range innerList {
+			item, ok := items.(string)
+			if !ok {
+				return nil, false, fmt.Errorf("announce-list type does not meet the required type")
+			}
+			innerResult = append(innerResult, item)
+		}
+		result = append(result, innerResult)
+	}
+
+	return result, true, nil
+}
+
 func CreateMetaInfoFromFile(filePath string) (*MetaInfo, error) {
 	metaInfo := NewMetaInfo()
 
@@ -67,8 +101,6 @@ func CreateMetaInfoFromFile(filePath string) (*MetaInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error Decoding the meta-info file")
 	}
-
-	fmt.Print(metaInfoDict)
 
 	//NOTE:Standard .torrent files use space-separated keys
 	infoRaw, ok := metaInfoDict["info"]
@@ -117,7 +149,7 @@ func CreateMetaInfoFromFile(filePath string) (*MetaInfo, error) {
 	}
 	metaInfo.setAnnounce(announce)
 
-	announceList, present, err := checkOptionalFieldPresenceAndType[[][]string](metaInfoDict, "announce-list")
+	announceList, present, err := checkAnnounceListPresenceAndType(metaInfoDict)
 	if err != nil {
 		return nil, err
 	}
