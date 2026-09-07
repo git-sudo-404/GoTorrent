@@ -20,7 +20,7 @@
  * THE SOFTWARE.
 */
 
-package tracker
+package urlencoder
 
 import "testing"
 

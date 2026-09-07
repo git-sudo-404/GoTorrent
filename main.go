@@ -20,8 +20,8 @@
  * THE SOFTWARE.
  */
 
-package tracker
+package main
 
-func trackerServer() {
+func main() {
 
 }
