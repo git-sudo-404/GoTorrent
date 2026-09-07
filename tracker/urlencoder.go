@@ -31,7 +31,8 @@ type URLEncoder struct {
 const hexTable = "0123456789ABCDEF"
 
 func (e *URLEncoder) EncodeString(s string) {
-	for _, c := range s {
+	for i, _ := range s {
+		c := s[i]
 		if (c >= '0' && c <= '9') ||
 			(c >= 'a' && c <= 'z') ||
 			(c >= 'A' && c <= 'Z') ||
@@ -39,7 +40,7 @@ func (e *URLEncoder) EncodeString(s string) {
 			c == '_' ||
 			c == '.' ||
 			c == '~' {
-			e.WriteRune(c)
+			e.WriteByte(c)
 		} else {
 			e.WriteByte('%')
 			e.WriteByte(hexTable[c>>4])

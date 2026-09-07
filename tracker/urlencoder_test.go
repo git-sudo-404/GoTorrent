@@ -24,7 +24,7 @@ package tracker
 
 import "testing"
 
-func TestURLEncoderString(t *testing.T) {
+func TestURLEncoderString1(t *testing.T) {
 	e := NewURLEncoder()
 	testString := "ABC-abc_123.~ /?&=+"
 	e.EncodeString(testString)
@@ -37,13 +37,39 @@ func TestURLEncoderString(t *testing.T) {
 	}
 }
 
-func TestURLEncoderByte(t *testing.T) {
+func TestURLEncoderByte1(t *testing.T) {
 	e := NewURLEncoder()
 	testBytes := []byte("ABC-abc_123.~ /?&=+")
 	e.EncodeBytes(testBytes)
 
 	got := e.String()
 	want := "ABC-abc_123.~%20%2F%3F%26%3D%2B"
+
+	if got != want {
+		t.Errorf("\nGOT  : %s\nWANT : %s", got, want)
+	}
+}
+
+func TestURLEncoderString2(t *testing.T) {
+	e := NewURLEncoder()
+	testString := "\x12\x34\x56\x78\x9a\xbc\xde\xf1\x23\x45\x67\x89\xab\xcd\xef\x12\x34\x56\x78\x9a"
+	e.EncodeString(testString)
+
+	got := e.String()
+	want := "%124Vx%9A%BC%DE%F1%23Eg%89%AB%CD%EF%124Vx%9A"
+
+	if got != want {
+		t.Errorf("\nGOT  : %s\nWANT : %s", got, want)
+	}
+}
+
+func TestURLEncoderByte2(t *testing.T) {
+	e := NewURLEncoder()
+	testBytes := []byte("\x12\x34\x56\x78\x9a\xbc\xde\xf1\x23\x45\x67\x89\xab\xcd\xef\x12\x34\x56\x78\x9a")
+	e.EncodeBytes(testBytes)
+
+	got := e.String()
+	want := "%124Vx%9A%BC%DE%F1%23Eg%89%AB%CD%EF%124Vx%9A"
 
 	if got != want {
 		t.Errorf("\nGOT  : %s\nWANT : %s", got, want)
