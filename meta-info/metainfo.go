@@ -28,7 +28,9 @@
 
 package metainfo
 
-import "fmt"
+import (
+	"fmt"
+)
 
 //TODO:
 //   1. Add multi-file torrent
@@ -184,4 +186,40 @@ func (mi *MetaInfo) GetEncoding() (string, error) {
 		return "", fmt.Errorf("Optional Field Not Set , returning empty string instead")
 	}
 	return *mi.encoding, nil
+}
+
+func (mi *MetaInfo) GetInfoDict() (map[string]any, error) {
+	var info map[string]any
+	info = map[string]any{}
+
+	pieceLength, err := mi.GetPieceLength()
+	if err != nil {
+		return nil, err
+	}
+	info["piece length"] = pieceLength
+
+	pieces, err := mi.GetPieces()
+	if err != nil {
+		return nil, err
+	}
+	info["pieces"] = pieces
+
+	private, err := mi.GetPrivate()
+	if err == nil {
+		info["private"] = private
+	}
+
+	name, err := mi.GetName()
+	if err != nil {
+		return nil, err
+	}
+	info["name"] = name
+
+	length, err := mi.GetLength()
+	if err != nil {
+		return nil, err
+	}
+	info["length"] = length
+
+	return info, nil
 }
