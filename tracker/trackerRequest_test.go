@@ -20,42 +20,34 @@
  * THE SOFTWARE.
  */
 
-package client
+package tracker
 
 import (
-	"crypto/sha1"
-	"fmt"
-	"os"
-	"time"
+	"gotorrent/client"
+	"gotorrent/testutils"
+	"testing"
 )
 
-type Client struct {
-	peerId [20]byte
-}
-
-func NewClient() *Client {
-
-	return &Client{
-		peerId: generateClientPeerId(),
+func TestGetURLEncodedRequestString(t *testing.T) {
+	metaInfo, err := testutils.CreateTestMetaInfo()
+	if err != nil {
+		panic(err)
 	}
+	client := client.NewClient()
+	peerIdBytes := client.GetPeerId()
+	peerId := string(peerIdBytes[:])
+	port := 8080
+	uploaded := 1024
+	downloaded := 1024
+	left := 1024
+	compact := 1
+	noPeerId := 1
+	event := STARTED
+	ip := ""
+
+	trackerRequest := CreateNewTrackerRequest().SetInfoHash(metaInfo).SetPeerId(peerId)
 }
 
-func generateClientPeerId() [20]byte {
-	var peerId [20]byte
-	prefix := []byte("-GT0001-")
+func TestGetURLEncodedRequestStringWithoutOptionalParams(t *testing.T) {
 
-	copy(peerId[:], prefix)
-
-	processId := os.Getpid()
-	timeStamp := time.Now().UnixMilli()
-
-	data := fmt.Sprintf("%d-%d", processId, timeStamp)
-	hash := sha1.Sum([]byte(data))
-
-	copy(peerId[8:], hash[:12])
-	return peerId
-}
-
-func (c *Client) GetPeerId() [20]byte {
-	return c.peerId
 }

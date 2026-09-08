@@ -44,7 +44,7 @@ type TrackerRequest struct {
 	peerId     string
 	port       int64
 	uploaded   int64
-	donwloaded int64
+	downloaded int64
 	left       int64
 	compact    int64 // 1 or 0
 	noPeerId   int64
@@ -53,6 +53,19 @@ type TrackerRequest struct {
 	numwant    *int64
 	key        *string
 	trackerId  *string
+}
+
+func CreateNewTrackerRequest() *TrackerRequest {
+	return &TrackerRequest{
+		infoHash:   "",
+		peerId:     "",
+		port:       0,
+		uploaded:   0,
+		downloaded: 0,
+		left:       0,
+		compact:    0,
+		noPeerId:   0,
+	}
 }
 
 func (tr *TrackerRequest) SetInfoHash(mi *metainfo.MetaInfo) *TrackerRequest {
@@ -95,7 +108,7 @@ func (tr *TrackerRequest) SetUploaded(uploaded int64) *TrackerRequest {
 }
 
 func (tr *TrackerRequest) SetDownloaded(downloaded int64) *TrackerRequest {
-	tr.donwloaded = downloaded
+	tr.downloaded = downloaded
 	return tr
 }
 
@@ -148,28 +161,28 @@ func (tr *TrackerRequest) GetURLEncodedRequestString(mi *metainfo.MetaInfo) (str
 	}
 
 	URLString.WriteString(baseURL)
-	URLString.WriteString(fmt.Sprintf("?info_hash=%s", tr.infoHash))
-	URLString.WriteString(fmt.Sprintf("?peer_id=%s", tr.peerId))
-	URLString.WriteString(fmt.Sprintf("?port=%d", tr.port))
-	URLString.WriteString(fmt.Sprintf("?uploaded=%d", tr.uploaded))
-	URLString.WriteString(fmt.Sprintf("?donwloaded=%d", tr.donwloaded))
-	URLString.WriteString(fmt.Sprintf("?left=%d", tr.left))
-	URLString.WriteString(fmt.Sprintf("?compact=%d", tr.compact))
-	URLString.WriteString(fmt.Sprintf("?no_peer_id=%d", tr.noPeerId))
+	fmt.Fprintf(&URLString, "?info_hash=%s", tr.infoHash)
+	fmt.Fprintf(&URLString, "&peer_id=%s", tr.peerId)
+	fmt.Fprintf(&URLString, "&port=%d", tr.port)
+	fmt.Fprintf(&URLString, "&uploaded=%d", tr.uploaded)
+	fmt.Fprintf(&URLString, "&downloaded=%d", tr.downloaded)
+	fmt.Fprintf(&URLString, "&left=%d", tr.left)
+	fmt.Fprintf(&URLString, "&compact=%d", tr.compact)
+	fmt.Fprintf(&URLString, "&no_peer_id=%d", tr.noPeerId)
 	if tr.event != nil {
-		URLString.WriteString(fmt.Sprintf("?event=%s", *tr.event))
+		fmt.Fprintf(&URLString, "&event=%s", *tr.event)
 	}
 	if tr.ip != nil {
-		URLString.WriteString(fmt.Sprintf("?ip=%s", *tr.ip))
+		fmt.Fprintf(&URLString, "&ip=%s", *tr.ip)
 	}
 	if tr.numwant != nil {
-		URLString.WriteString(fmt.Sprintf("?numwant=%d", *tr.numwant))
+		fmt.Fprintf(&URLString, "&numwant=%d", *tr.numwant)
 	}
 	if tr.key != nil {
-		URLString.WriteString(fmt.Sprintf("?key=%s", *tr.key))
+		fmt.Fprintf(&URLString, "&key=%s", *tr.key)
 	}
 	if tr.trackerId != nil {
-		URLString.WriteString(fmt.Sprintf("?trackerid=%s", *tr.trackerId))
+		fmt.Fprintf(&URLString, "&trackerid=%s", *tr.trackerId)
 	}
 
 	urlEncoder := urlencoder.NewURLEncoder()
