@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package tracker
+package torrent
 
 type TrackerResponse struct {
 }

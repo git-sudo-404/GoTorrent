@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package main
+package torrent
 
 import (
 	"crypto/sha1"
@@ -54,4 +54,8 @@ func generateClientPeerId() [20]byte {
 
 	copy(peerId[8:], hash[:12])
 	return peerId
+}
+
+func (c *Client) GetPeerId() [20]byte {
+	return c.peerId
 }

@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package metainfo
+package torrent
 
 import (
 	"bufio"
@@ -30,7 +30,7 @@ import (
 	"testing"
 )
 
-func getTestMetaInfoFilePath() string {
+func GetTestMetaInfoFilePath() string {
 	wd, err := os.Getwd()
 	if err != nil {
 		panic(err)
@@ -40,7 +40,7 @@ func getTestMetaInfoFilePath() string {
 	return metaInfoFilePath
 }
 
-func newMetaInfoDict() map[string]any {
+func NewMetaInfoDict() map[string]any {
 	// Create a deterministic 60-byte binary pattern (3 x 20-byte SHA1 hashes)
 	testPieces := string([]byte{
 		0xaa, 0xf4, 0xc6, 0x1d, 0xdc, 0xa0, 0x7a, 0x7f, 0x2a, 0x08, 0x25, 0x13, 0x6c, 0xe3, 0x0c, 0x83, 0x4d, 0x0a, 0xc6, 0x3f,
@@ -68,9 +68,9 @@ func newMetaInfoDict() map[string]any {
 	}
 }
 
-func writeMetaInfoToFile(metaInfoDict map[string]any) error {
+func WriteMetaInfoToFile(metaInfoDict map[string]any) error {
 
-	metaInfoFile, err := os.Create(getTestMetaInfoFilePath())
+	metaInfoFile, err := os.Create(GetTestMetaInfoFilePath())
 	if err != nil {
 		panic(err)
 	}
@@ -84,21 +84,32 @@ func writeMetaInfoToFile(metaInfoDict map[string]any) error {
 	}
 
 	metaInfoFileWriter := bufio.NewWriter(metaInfoFile)
-	if _, err := metaInfoFileWriter.Write([]byte(encoder.String())); err != nil {
+	if _, err := metaInfoFileWriter.Write(encoder.Bytes()); err != nil {
 		return err
 	}
 	return metaInfoFileWriter.Flush()
 }
 
+func CreateTestMetaInfo() (*MetaInfo, error) {
+	metaInfoDict := NewMetaInfoDict()
+	WriteMetaInfoToFile(metaInfoDict)
+	defer os.Remove(GetTestMetaInfoFilePath())
+	metaInfo, err := CreateMetaInfoFromFile(GetTestMetaInfoFilePath())
+	if err != nil {
+		return nil, err
+	}
+	return metaInfo, nil
+}
+
 func TestCreateMetaInfoFromFile(t *testing.T) {
 
-	expectedDict := newMetaInfoDict()
+	expectedDict := NewMetaInfoDict()
 
-	writeMetaInfoToFile(expectedDict)
+	WriteMetaInfoToFile(expectedDict)
 	defer func() {
-		os.Remove(getTestMetaInfoFilePath())
+		os.Remove(GetTestMetaInfoFilePath())
 	}()
-	metaInfo, err := CreateMetaInfoFromFile(getTestMetaInfoFilePath())
+	metaInfo, err := CreateMetaInfoFromFile(GetTestMetaInfoFilePath())
 	if err != nil {
 		panic(err)
 	}
@@ -189,14 +200,14 @@ func TestCreateMetaInfoFromFile_MissingOptionalFields(t *testing.T) {
 		"announce": "http://tracker.example.com:8080/announce",
 	}
 
-	if err := writeMetaInfoToFile(minimalDict); err != nil {
+	if err := WriteMetaInfoToFile(minimalDict); err != nil {
 		t.Fatalf("failed to write minimal test file: %v", err)
 	}
 	defer func() {
-		os.Remove(getTestMetaInfoFilePath())
+		os.Remove(GetTestMetaInfoFilePath())
 	}()
 
-	metaInfo, err := CreateMetaInfoFromFile(getTestMetaInfoFilePath())
+	metaInfo, err := CreateMetaInfoFromFile(GetTestMetaInfoFilePath())
 	if err != nil {
 		t.Fatalf("CreateMetaInfoFromFile failed on minimal dict: %v", err)
 	}
