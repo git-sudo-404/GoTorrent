@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package client
+package torrent
 
 import (
 	"crypto/sha1"

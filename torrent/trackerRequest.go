@@ -20,13 +20,12 @@
  * THE SOFTWARE.
  */
 
-package tracker
+package torrent
 
 import (
 	"crypto/sha1"
 	"fmt"
 	"gotorrent/bencode"
-	metainfo "gotorrent/meta-info"
 	urlencoder "gotorrent/url-encoder"
 	"strings"
 )
@@ -64,7 +63,7 @@ func CreateNewTrackerRequest() *TrackerRequest {
 	}
 }
 
-func (tr *TrackerRequest) SetInfoHash(mi *metainfo.MetaInfo) *TrackerRequest {
+func (tr *TrackerRequest) SetInfoHash(mi *MetaInfo) *TrackerRequest {
 	infoDict, err := mi.GetInfoDict()
 	if err != nil {
 		return nil
@@ -130,7 +129,7 @@ func (tr *TrackerRequest) SetEvent(event Event) *TrackerRequest {
 	return tr
 }
 
-func (tr *TrackerRequest) GetURLEncodedRequestString(mi *metainfo.MetaInfo) (string, error) {
+func (tr *TrackerRequest) GetURLEncodedRequestString(mi *MetaInfo) (string, error) {
 	var URLString strings.Builder
 
 	baseURL, err := mi.GetAnnounce()

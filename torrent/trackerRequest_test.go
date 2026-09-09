@@ -1,5 +1,3 @@
-//go:build testrun
-
 /*
  * Copyright (c) 2026 git-sudo-404 <https://github.com/git-sudo-404/GoTorrent.git>
  *
@@ -22,24 +20,22 @@
  * THE SOFTWARE.
  */
 
-package tracker
+package torrent
 
 import (
 	"crypto/sha1"
 	"fmt"
 	"gotorrent/bencode"
-	"gotorrent/client"
-	"gotorrent/testutils"
 	urlencoder "gotorrent/url-encoder"
 	"testing"
 )
 
 func TestGetURLEncodedRequestString(t *testing.T) {
-	metaInfo, err := testutils.CreateTestMetaInfo()
+	metaInfo, err := CreateTestMetaInfo()
 	if err != nil {
 		panic(err)
 	}
-	client := client.NewClient()
+	client := NewClient()
 	peerIdBytes := client.GetPeerId()
 	peerId := string(peerIdBytes[:])
 	port := 8080
