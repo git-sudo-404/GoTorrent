@@ -1,3 +1,5 @@
+//go:build testrun
+
 /*
  * Copyright (c) 2026 git-sudo-404 <https://github.com/git-sudo-404/GoTorrent.git>
  *
@@ -23,8 +25,12 @@
 package tracker
 
 import (
+	"crypto/sha1"
+	"fmt"
+	"gotorrent/bencode"
 	"gotorrent/client"
 	"gotorrent/testutils"
+	urlencoder "gotorrent/url-encoder"
 	"testing"
 )
 
@@ -43,11 +49,49 @@ func TestGetURLEncodedRequestString(t *testing.T) {
 	compact := 1
 	noPeerId := 1
 	event := STARTED
-	ip := ""
 
-	trackerRequest := CreateNewTrackerRequest().SetInfoHash(metaInfo).SetPeerId(peerId)
-}
+	trackerRequest := CreateNewTrackerRequest().
+		SetInfoHash(metaInfo).
+		SetPeerId(peerId).
+		SetPort(int64(port)).
+		SetUploaded(int64(uploaded)).
+		SetDownloaded(int64(downloaded)).
+		SetLeft(int64(left)).
+		SetCompact(int64(compact)).
+		SetNoPeerId(int64(noPeerId)).
+		SetEvent(event)
 
-func TestGetURLEncodedRequestStringWithoutOptionalParams(t *testing.T) {
+	got, _ := trackerRequest.GetURLEncodedRequestString(metaInfo)
 
+	baseURL, _ := metaInfo.GetAnnounce()
+
+	infoDict, err := metaInfo.GetInfoDict()
+	if err != nil {
+		panic(err)
+	}
+
+	// enode the info dict
+	encoder := bencode.CreateNewEncoder()
+	encoder.Encode(infoDict)
+	infoBencoded := encoder.Bytes()
+
+	infoHashed := sha1.Sum(infoBencoded)
+
+	urlencoder := urlencoder.NewURLEncoder()
+	urlencoder.EncodeBytes(infoHashed[:])
+
+	infoURLEncoded := urlencoder.String()
+	infoHash := string(infoURLEncoded)
+
+	urlencoder.Reset()
+
+	// urlEncode the peerId
+	urlencoder.EncodeString(peerId)
+	peerId = urlencoder.String()
+
+	want := fmt.Sprintf("%s?info_hash=%s&peer_id=%s&port=%d&uploaded=%d&downloaded=%d&left=%d&compact=%d&no_peer_id=%d&event=%s",
+		baseURL, infoHash, peerId, port, uploaded, downloaded, left, compact, noPeerId, event)
+	if got != want {
+		t.Errorf("\nGOT  : %v\nwant : %v", got, want)
+	}
 }

@@ -49,10 +49,6 @@ type TrackerRequest struct {
 	compact    int64 // 1 or 0
 	noPeerId   int64
 	event      *Event
-	ip         *string
-	numwant    *int64
-	key        *string
-	trackerId  *string
 }
 
 func CreateNewTrackerRequest() *TrackerRequest {
@@ -92,7 +88,9 @@ func (tr *TrackerRequest) SetInfoHash(mi *metainfo.MetaInfo) *TrackerRequest {
 // NOTE: The peerId has to be constructed only once during the client startup
 // which will be done and be stored in the client struct
 func (tr *TrackerRequest) SetPeerId(peerId string) *TrackerRequest {
-	tr.peerId = peerId
+	urlencoder := urlencoder.NewURLEncoder()
+	urlencoder.EncodeString(peerId)
+	tr.peerId = urlencoder.String()
 	return tr
 }
 
@@ -132,26 +130,6 @@ func (tr *TrackerRequest) SetEvent(event Event) *TrackerRequest {
 	return tr
 }
 
-func (tr *TrackerRequest) SetIp(ip string) *TrackerRequest {
-	tr.ip = &ip
-	return tr
-}
-
-func (tr *TrackerRequest) SetNumwant(numwant int64) *TrackerRequest {
-	tr.numwant = &numwant
-	return tr
-}
-
-func (tr *TrackerRequest) SetKey(key string) *TrackerRequest {
-	tr.key = &key
-	return tr
-}
-
-func (tr *TrackerRequest) SetTrackerId(trackerId string) *TrackerRequest {
-	tr.trackerId = &trackerId
-	return tr
-}
-
 func (tr *TrackerRequest) GetURLEncodedRequestString(mi *metainfo.MetaInfo) (string, error) {
 	var URLString strings.Builder
 
@@ -172,21 +150,6 @@ func (tr *TrackerRequest) GetURLEncodedRequestString(mi *metainfo.MetaInfo) (str
 	if tr.event != nil {
 		fmt.Fprintf(&URLString, "&event=%s", *tr.event)
 	}
-	if tr.ip != nil {
-		fmt.Fprintf(&URLString, "&ip=%s", *tr.ip)
-	}
-	if tr.numwant != nil {
-		fmt.Fprintf(&URLString, "&numwant=%d", *tr.numwant)
-	}
-	if tr.key != nil {
-		fmt.Fprintf(&URLString, "&key=%s", *tr.key)
-	}
-	if tr.trackerId != nil {
-		fmt.Fprintf(&URLString, "&trackerid=%s", *tr.trackerId)
-	}
 
-	urlEncoder := urlencoder.NewURLEncoder()
-	urlEncoder.EncodeString(URLString.String())
-
-	return urlEncoder.String(), nil
+	return URLString.String(), nil
 }
