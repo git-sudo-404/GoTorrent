@@ -23,3 +23,86 @@
  */
 
 package torrent
+
+import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
+	"gotorrent/internal/bencode"
+	"net"
+	"testing"
+)
+
+func TestParseTrackerResponse(t *testing.T) {
+
+	trackerResponseDict := map[string]any{}
+	trackerResponseDict["interval"] = int64(10)
+	trackerResponseDict["min interval"] = int64(5)
+	trackerResponseDict["tracker id"] = "tracker_id_1"
+	trackerResponseDict["complete"] = int64(2)
+	trackerResponseDict["incomplete"] = int64(3)
+
+	mockPeerIps := new(bytes.Buffer)
+	mockPeerIps.Write(net.ParseIP("192.2.1.11").To4())
+	var port uint16 = 8001
+	binary.Write(mockPeerIps, binary.BigEndian, port)
+
+	mockPeerIps.Write(net.ParseIP("192.2.1.12").To4())
+	port = 8001
+	binary.Write(mockPeerIps, binary.BigEndian, port)
+
+	mockPeerIps.Write(net.ParseIP("192.2.1.13").To4())
+	port = 8001
+	binary.Write(mockPeerIps, binary.BigEndian, port)
+
+	mockPeerIps.Write(net.ParseIP("192.2.1.14").To4())
+	port = 8001
+	binary.Write(mockPeerIps, binary.BigEndian, port)
+
+	mockPeerIps.Write(net.ParseIP("192.2.1.15").To4())
+	port = 8001
+	binary.Write(mockPeerIps, binary.BigEndian, port)
+
+	mockPeerBytes := mockPeerIps.String()
+
+	trackerResponseDict["peers"] = mockPeerBytes
+
+	encoder := bencode.CreateNewEncoder()
+	encoder.Encode(trackerResponseDict)
+	bencodedTrackerResponse := encoder.String()
+
+	mockTrackerResponse := new(bytes.Buffer)
+	mockTrackerResponse.WriteString(bencodedTrackerResponse)
+
+	tr, err := ParseTrackerResponse(mockTrackerResponse)
+	if err != nil {
+		panic(err)
+	}
+
+	if tr.interval != int64(10) {
+		t.Errorf("\nGOT  : %d\nWANT : %d", tr.interval, 10)
+	}
+	if *tr.minInterval != int64(5) {
+		t.Errorf("\nGOT  : %d\nWANT : %d", *tr.minInterval, 5)
+	}
+	if tr.trackerId != "tracker_id_1" {
+		t.Errorf("\nGOT  : %s\nWANT : tracker_id_1", tr.trackerId)
+	}
+	if tr.complete != int64(2) {
+		t.Errorf("\nGOT  : %d\nWANT : %d", tr.complete, 2)
+	}
+	if tr.incomplete != int64(3) {
+		t.Errorf("\nGOT  : %d\nWANT : %d", tr.incomplete, 3)
+	}
+
+	for i := 1; i <= 5; i++ {
+		wantedIp := net.ParseIP(fmt.Sprintf("192.2.1.1%d", i))
+		if !tr.peers[i-1].ip.Equal(wantedIp) {
+			t.Errorf("expected IP %s, got %s", wantedIp, tr.peers[i-1].ip)
+		}
+		if tr.peers[i-1].port != int64(8001) {
+			t.Errorf("Port mismatch in the tr.peers , wanted 8001")
+		}
+	}
+
+}
