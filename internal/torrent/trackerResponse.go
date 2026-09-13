@@ -26,7 +26,7 @@ package torrent
 
 import "net"
 
-type Peer struct { // no peerId when in compact mode = 1
+type PeerAddress struct { // no peerId when in compact mode = 1
 	ip   net.IP // peer's IP address either IPv6 (hexed) or IPv4 (dotted quad) or DNS name (string)
 	port int64  //  peer's port number (integer)
 }
@@ -37,10 +37,10 @@ type TrackerResponse struct {
 	trackerId   string //  A string that the client should send back on its next announcements. If absent and a previous announce sent a tracker id, do not discard the old value; keep using it.
 	complete    int64  //  number of peers with the entire file, i.e. seeders (integer)
 	incomplete  int64  // number of non-seeder peers, aka "leechers" (integer)
-	peers       []Peer
+	peers       []PeerAddress
 }
 
-func (tr *TrackerResponse) SetPeers(peers []Peer) *TrackerResponse {
+func (tr *TrackerResponse) SetPeers(peers []PeerAddress) *TrackerResponse {
 	tr.peers = peers
 	return tr
 }
