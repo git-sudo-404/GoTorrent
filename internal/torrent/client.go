@@ -31,8 +31,19 @@ import (
 	"time"
 )
 
+type RemotePeer struct {
+	PeerAddress
+	peerId         [20]byte
+	amChoking      int32 // This client is choking the peer
+	amInterested   int32 //  This client is interested in the peer
+	peerChoking    int32 // Peer is choking this client
+	peerInterested int32 // Peer is interested in this client
+}
+
 type Client struct {
-	peerId [20]byte
+	peerId      [20]byte
+	PeerAddress // ip & port of the client
+	remotePeers []RemotePeer
 }
 
 func NewClient() *Client {

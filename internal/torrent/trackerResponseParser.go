@@ -32,7 +32,7 @@ import (
 	"net"
 )
 
-func parsePeersCompactString(peersCompactString string) ([]Peer, error) {
+func parsePeersCompactString(peersCompactString string) ([]PeerAddress, error) {
 	// first 4-bytes -> IP
 	// next 2-bytes -> port
 
@@ -43,7 +43,7 @@ func parsePeersCompactString(peersCompactString string) ([]Peer, error) {
 	}
 
 	numberOfPeers := dataLen / 6
-	peers := make([]Peer, numberOfPeers)
+	peers := make([]PeerAddress, numberOfPeers)
 
 	for i := 0; i < numberOfPeers; i++ {
 		offset := i * 6
@@ -53,7 +53,7 @@ func parsePeersCompactString(peersCompactString string) ([]Peer, error) {
 
 		port := int64(binary.BigEndian.Uint16(data[offset+4 : offset+6]))
 
-		peers[i] = Peer{
+		peers[i] = PeerAddress{
 			ip:   ip,
 			port: port,
 		}
