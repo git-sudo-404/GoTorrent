@@ -1,23 +1,25 @@
 /*
- * Copyright (c) 2026 git-sudo-404 <https://github.com/git-sudo-404/GoTorrent.git>
+ * MIT License
+ *
+ * Copyright (c) 2026 git-sudo-404
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
+ * Of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
+ * Copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
  *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
+ * The above copyright notice and this permission notice shall be included in all
+ * Copies or substantial portions of the Software.
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  */
 
 package bencode
@@ -108,4 +110,147 @@ func TestDecodeDict(t *testing.T) {
 		t.Errorf("\nGOT  : %#v\nWANT : %#v", got, want)
 	}
 
+}
+
+func TestAppendRawInt(t *testing.T) {
+	encoded := "i123e"
+
+	d := &decoder{
+		bufio.NewReader(bytes.NewBufferString(encoded)),
+	}
+
+	var rawInfo []byte
+
+	err := d.appendRawInt(&rawInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []byte(encoded)
+
+	if !bytes.Equal(rawInfo, want) {
+		t.Errorf("\nGOT  : %q\nWANT : %q", rawInfo, want)
+	}
+}
+
+func TestAppendRawString(t *testing.T) {
+	encoded := "5:hello"
+
+	d := &decoder{
+		bufio.NewReader(bytes.NewBufferString(encoded)),
+	}
+
+	var rawInfo []byte
+
+	err := d.appendRawString(&rawInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []byte(encoded)
+
+	if !bytes.Equal(rawInfo, want) {
+		t.Errorf("\nGOT  : %q\nWANT : %q", rawInfo, want)
+	}
+}
+
+func TestAppendRawList(t *testing.T) {
+	encoded := "li10e2:hili20eee"
+
+	d := &decoder{
+		bufio.NewReader(bytes.NewBufferString(encoded)),
+	}
+
+	var rawInfo []byte
+
+	err := d.appendRawList(&rawInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []byte(encoded)
+
+	if !bytes.Equal(rawInfo, want) {
+		t.Errorf("\nGOT  : %q\nWANT : %q", rawInfo, want)
+	}
+}
+
+func TestAppendRawDict(t *testing.T) {
+	encoded := "d4:name4:test6:lengthi10ee"
+
+	d := &decoder{
+		bufio.NewReader(bytes.NewBufferString(encoded)),
+	}
+
+	var rawInfo []byte
+
+	err := d.appendRawDict(&rawInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []byte(encoded)
+
+	if !bytes.Equal(rawInfo, want) {
+		t.Errorf("\nGOT  : %q\nWANT : %q", rawInfo, want)
+	}
+}
+
+func TestAppendRawDictNested(t *testing.T) {
+	encoded := "d4:name4:test4:infod3:fooi20eee"
+
+	d := &decoder{
+		bufio.NewReader(bytes.NewBufferString(encoded)),
+	}
+
+	var rawInfo []byte
+
+	err := d.appendRawDict(&rawInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []byte(encoded)
+
+	if !bytes.Equal(rawInfo, want) {
+		t.Errorf("\nGOT  : %q\nWANT : %q", rawInfo, want)
+	}
+}
+
+func TestGetRawInfoBytes(t *testing.T) {
+	encoded := "d8:announce3:foo4:infod4:name4:test6:lengthi10eee"
+
+	d := &decoder{
+		bufio.NewReader(bytes.NewBufferString(encoded)),
+	}
+
+	got, err := d.getRawInfoBytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []byte("d4:name4:test6:lengthi10ee")
+
+	if !bytes.Equal(got, want) {
+		t.Errorf("\nGOT  : %q\nWANT : %q", got, want)
+	}
+}
+
+func TestGetRawInfoBytesInfoFirst(t *testing.T) {
+	encoded := "d4:infod4:name4:test6:lengthi10eee"
+
+	d := &decoder{
+		bufio.NewReader(bytes.NewBufferString(encoded)),
+	}
+
+	got, err := d.getRawInfoBytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []byte("d4:name4:test6:lengthi10ee")
+
+	if !bytes.Equal(got, want) {
+		t.Errorf("\nGOT  : %q\nWANT : %q", got, want)
+	}
 }
