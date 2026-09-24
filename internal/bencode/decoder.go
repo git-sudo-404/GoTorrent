@@ -1,23 +1,25 @@
 /*
- * Copyright (c) 2026 git-sudo-404 <https://github.com/git-sudo-404/GoTorrent.git>
+ * MIT License
+ *
+ * Copyright (c) 2026 git-sudo-404
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
+ * Of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
+ * Copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
  *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
+ * The above copyright notice and this permission notice shall be included in all
+ * Copies or substantial portions of the Software.
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  */
 
 package bencode
@@ -182,4 +184,198 @@ func Decode(ior io.Reader) (map[string]any, error) {
 	br := bufio.NewReader(ior)
 	decoder := &decoder{br}
 	return decoder.decodeDict()
+}
+
+//NOTE: The below code does not actually belong to bencode, but then it is needed to get the rawInfo from the meta-info file which will be hashed and sent along the tracker request.
+// Whenever the below functions are used, they may destroy the bytes Buffer of the decoder .
+// So, in the application layer use a seperate decoder structs for these purposes
+
+func (d *decoder) appendRawInt(rawInfo *[]byte) error {
+	buf, err := d.ReadBytes('e')
+	if err != nil {
+		return err
+	}
+	*rawInfo = append(*rawInfo, buf...)
+	return nil
+}
+
+func (d *decoder) appendRawString(rawInfo *[]byte) error {
+	stringLenBytes, err := d.ReadBytes(':')
+	if err != nil {
+		return err
+	}
+	*rawInfo = append(*rawInfo, stringLenBytes...)
+	stringLen, err := strconv.ParseInt(string(stringLenBytes[:len(stringLenBytes)-1]), 10, 64)
+	if err != nil {
+		return err
+	}
+	buf := make([]byte, stringLen)
+	if _, err := io.ReadFull(d, buf); err != nil {
+		return err
+	}
+	*rawInfo = append(*rawInfo, buf...)
+	return nil
+}
+
+func (d *decoder) appendRawList(rawInfo *[]byte) error {
+	lbyte, err := d.ReadByte()
+	*rawInfo = append(*rawInfo, lbyte)
+	if err != nil {
+		return err
+	}
+	for {
+
+		peakByte, err := d.Peek(1)
+		if err != nil {
+			return err
+		}
+
+		if rune(peakByte[0]) == 'e' {
+			lastByte, err := d.ReadByte()
+			if err != nil {
+				return err
+			}
+			*rawInfo = append(*rawInfo, lastByte)
+			break
+		}
+
+		switch rune(peakByte[0]) {
+		case 'i':
+			err := d.appendRawInt(rawInfo)
+			if err != nil {
+				return err
+			}
+		case 'l':
+			err := d.appendRawList(rawInfo)
+			if err != nil {
+				return err
+			}
+		case 'd':
+			if err := d.appendRawDict(rawInfo); err != nil {
+				return err
+			}
+		default: // string
+			err := d.appendRawString(rawInfo)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (d *decoder) appendRawDict(rawInfo *[]byte) error {
+	dByte, err := d.ReadByte()
+	if err != nil {
+		return err
+	}
+	*rawInfo = append(*rawInfo, dByte)
+
+	for {
+
+		peakByte, err := d.Peek(1)
+		if err != nil {
+			return err
+		}
+
+		if rune(peakByte[0]) == 'e' {
+			lastByte, err := d.ReadByte()
+			if err != nil {
+				return err
+			}
+			*rawInfo = append(*rawInfo, lastByte)
+			break
+		}
+
+		switch rune(peakByte[0]) {
+		case 'e':
+
+		case 'i':
+			if err := d.appendRawInt(rawInfo); err != nil {
+				return err
+			}
+		case 'l':
+			if err := d.appendRawList(rawInfo); err != nil {
+				return err
+			}
+		case 'd':
+			if err := d.appendRawDict(rawInfo); err != nil {
+				return err
+			}
+		default:
+			if err := d.appendRawString(rawInfo); err != nil {
+				return err
+			}
+		}
+
+	}
+	return nil
+}
+
+func (d *decoder) getRawInfoBytes() ([]byte, error) {
+	var rawInfo []byte
+	d.ReadByte() // consume the 'd'
+	for {
+
+		peekBytes, err := d.Peek(1)
+		if err != nil {
+			panic(err)
+		}
+
+		if rune(peekBytes[0]) == 'e' {
+			d.ReadByte()
+			break
+		}
+
+		key, err := d.decodeString()
+		if err != nil {
+			panic(err)
+		}
+
+		if key == "info" {
+
+			if err := d.appendRawDict(&rawInfo); err != nil {
+				return nil, err
+			}
+
+			break
+		} else {
+
+			peekBytes, err = d.Peek(1)
+			if err != nil {
+				panic(err)
+			}
+
+			switch rune(peekBytes[0]) {
+			case 'i':
+				_, err := d.decodeInt()
+				if err != nil {
+					panic(err)
+				}
+			case 'l':
+				_, err := d.decodeList()
+				if err != nil {
+					panic(err)
+				}
+			case 'd':
+				_, err := d.decodeDict()
+				if err != nil {
+					panic(err)
+				}
+			default:
+				_, err := d.decodeString()
+				if err != nil {
+					panic(err)
+				}
+			}
+
+		}
+	}
+	return rawInfo, nil
+}
+
+func RawInfoBytes(ior io.Reader) ([]byte, error) {
+	br := bufio.NewReader(ior)
+	decoder := &decoder{br}
+	return decoder.getRawInfoBytes()
 }

@@ -22,6 +22,14 @@
  * SOFTWARE.
  */
 
-package gotorrent
+package main
 
-func main() {}
+import (
+	"gotorrent/internal/torrent"
+	"os"
+)
+
+func main() {
+	metaInfoFilePath := os.Args[1]
+	torrent.StartTorrent(metaInfoFilePath, "")
+}

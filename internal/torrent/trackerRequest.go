@@ -25,9 +25,7 @@
 package torrent
 
 import (
-	"crypto/sha1"
 	"fmt"
-	bencode "gotorrent/internal/bencode"
 	urlencoder "gotorrent/internal/url-encoder"
 	"strings"
 )
@@ -48,11 +46,11 @@ type TrackerRequest struct {
 	downloaded int64
 	left       int64
 	compact    int64 // 1 or 0
-	noPeerId   int64
+	noPeerId   int64 // Indicates that the tracker can omit peer id field in peers dictionary. This option is ignored if compact is enabled.
 	event      *Event
 }
 
-func CreateNewTrackerRequest() *TrackerRequest {
+func NewTrackerRequest() *TrackerRequest {
 	return &TrackerRequest{
 		infoHash:   "",
 		peerId:     "",
@@ -66,23 +64,8 @@ func CreateNewTrackerRequest() *TrackerRequest {
 }
 
 func (tr *TrackerRequest) SetInfoHash(mi *MetaInfo) *TrackerRequest {
-	infoDict, err := mi.GetInfoDict()
-	if err != nil {
-		return nil
-	}
-
-	encoder := bencode.CreateNewEncoder()
-	encoder.Encode(infoDict)
-	infoBencoded := encoder.Bytes()
-
-	infoHashed := sha1.Sum(infoBencoded)
-
-	urlencoder := urlencoder.NewURLEncoder()
-	urlencoder.EncodeBytes(infoHashed[:])
-
-	infoURLEncoded := urlencoder.String()
-	tr.infoHash = string(infoURLEncoded)
-
+	infoHash := mi.GetInfoHash()
+	tr.infoHash = string(infoHash[:])
 	return tr
 }
 
@@ -138,9 +121,12 @@ func (tr *TrackerRequest) GetURLEncodedRequestString(mi *MetaInfo) (string, erro
 	if err != nil {
 		return "", nil
 	}
+	encoder := urlencoder.NewURLEncoder()
+	encoder.EncodeBytes([]byte(tr.infoHash))
 
 	URLString.WriteString(baseURL)
-	fmt.Fprintf(&URLString, "?info_hash=%s", tr.infoHash)
+	// fmt.Fprintf(&URLString, "?info_hash=%s", tr.infoHash)
+	fmt.Fprintf(&URLString, "?info_hash=%s", encoder.String())
 	fmt.Fprintf(&URLString, "&peer_id=%s", tr.peerId)
 	fmt.Fprintf(&URLString, "&port=%d", tr.port)
 	fmt.Fprintf(&URLString, "&uploaded=%d", tr.uploaded)

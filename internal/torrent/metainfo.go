@@ -53,6 +53,8 @@ type info struct {
 type MetaInfo struct {
 	//info dictionary (here, single file torrent)
 	info
+	infoHash     [20]byte    // 20 byte SHA-1 hash of the raw bencoded info dict from the metaInfo file (.torrent) to be added along every tracker request
+	rawInfo      []byte      // raw info string from the .torrent file
 	announce     string      // The announce URL of the tracker (string)
 	announceList *[][]string //(optional) this is an extention to the official specification, offering backwards-compatibility. (list of lists of strings).
 	creationDate *int64      //  (optional) the creation time of the torrent, in standard UNIX epoch format (integer, seconds since 1-Jan-1970 00:00:00 UTC)
@@ -69,6 +71,8 @@ func NewMetaInfo() *MetaInfo {
 			name:        "",
 			length:      0,
 		},
+		rawInfo:  []byte{},
+		infoHash: [20]byte{},
 		announce: "",
 	}
 }
@@ -125,6 +129,16 @@ func (mi *MetaInfo) SetCreatedBy(createdBy string) *MetaInfo {
 
 func (mi *MetaInfo) SetEncoding(encoding string) *MetaInfo {
 	mi.encoding = &encoding
+	return mi
+}
+
+func (mi *MetaInfo) SetInfoHash(infoHash [20]byte) *MetaInfo {
+	mi.infoHash = infoHash
+	return mi
+}
+
+func (mi *MetaInfo) SetRawInfo(rawInfo []byte) *MetaInfo {
+	mi.rawInfo = rawInfo
 	return mi
 }
 
@@ -190,6 +204,16 @@ func (mi *MetaInfo) GetEncoding() (string, error) {
 	return *mi.encoding, nil
 }
 
+func (mi *MetaInfo) GetRawInfo() []byte {
+	return mi.rawInfo
+}
+
+func (mi *MetaInfo) GetInfoHash() [20]byte {
+	return mi.infoHash
+}
+
+// WARNING: This infoDIct shouldn't be used in the trackerRequest , since the tracker rewquest expexts SHA-1 hash of the raw bencoded info hash form the .torrent
+// this is just used for the internal purposes only
 func (mi *MetaInfo) GetInfoDict() (map[string]any, error) {
 	var info map[string]any
 	info = map[string]any{}
