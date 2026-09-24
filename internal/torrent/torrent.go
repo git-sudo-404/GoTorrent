@@ -28,6 +28,7 @@ import (
 	"bufio"
 	"fmt"
 	"gotorrent/internal/bencode"
+	"net"
 	"net/http"
 	"time"
 )
@@ -35,21 +36,19 @@ import (
 func populateInitialTrackerRequestParams(tr *TrackerRequest, mi *MetaInfo, client *Client) {
 	fmt.Println("[LOG] Populating TrackerRequest...")
 	tr.SetInfoHash(mi)
-	tr.SetPeerId(string(client.peerId[:]))
+	tr.SetPeerId(string(client.clientId[:]))
 	tr.SetPort(int64(client.port))
 	tr.SetUploaded(int64(0))
 	tr.SetDownloaded(int64(0))
 	tr.SetLeft(mi.length)
-	tr.SetCompact(1)
+	tr.SetCompact(int64(0))
 	tr.SetNoPeerId(int64(1))
 	tr.SetEvent(STARTED)
 }
 
-func sendTrackerRequest(trackerRequestURL *string) *TrackerResponse {
+func sendTrackerRequest(trackerRequestURL *string, client *Client) {
 
-	trackerResponse := NewTrackerResponse()
-
-	client := &http.Client{
+	httpClient := &http.Client{
 		Timeout: 5 * time.Second,
 	}
 	req, err := http.NewRequest(http.MethodGet, *trackerRequestURL, nil)
@@ -58,8 +57,7 @@ func sendTrackerRequest(trackerRequestURL *string) *TrackerResponse {
 	}
 
 	fmt.Println("[LOG] Sending TrackerRequest...")
-	fmt.Println("TRACKER REQUEST URL : ", *trackerRequestURL)
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -68,7 +66,7 @@ func sendTrackerRequest(trackerRequestURL *string) *TrackerResponse {
 		fmt.Println("Error tracker server return : ", resp.Body)
 	}
 
-	fmt.Println("STATUS:", resp.Status)
+	fmt.Println("[LOG] STATUS:", resp.Status)
 
 	buf := bufio.NewReader(resp.Body)
 
@@ -77,9 +75,80 @@ func sendTrackerRequest(trackerRequestURL *string) *TrackerResponse {
 		panic(err)
 	}
 
-	fmt.Println(decodedResponse)
+	// fmt.Println(decodedResponse)
+	interval, present := decodedResponse["interval"]
+	if !present {
+		panic("interval not present in the tracker response")
+	}
+	//NOTE: Tracker Id is optioanl
+	// trackerId, present := decodedResponse["tracker id"]
+	// if !present {
+	// 	panic("tracker id not present in tracker response")
+	// }
+	complete, present := decodedResponse["complete"]
+	if !present {
+		panic("complete field not present in tracker response")
+	}
+	incomplete, present := decodedResponse["incomplete"]
+	if !present {
+		panic("Field : incomplete , not present in tracker response")
+	}
+	peers, present := decodedResponse["peers"]
+	if !present {
+		panic("peers not present in tracker response")
+	}
 
-	return trackerResponse
+	// fmt.Println("[LOG] Tracker Responded with the following : ....")
+	// fmt.Println("[LOG] interval : ", interval)
+	// fmt.Println("[LOG] complete : ", complete)
+	// fmt.Println("[LOG] incomplete : ", incomplete)
+	// fmt.Println("[LOG] peers : ", peers)
+
+	if val, ok := interval.(int64); ok {
+		client.trackerInterval = val
+	} else {
+		fmt.Println("[ERROR] : interval of tracker response not of type int64")
+	}
+
+	if val, ok := complete.(int64); ok {
+		client.completePeers = val
+	} else {
+		fmt.Println("[ERROR] : complete from tracker response is not of type int64")
+	}
+
+	if val, ok := incomplete.(int64); ok {
+		client.incompletePeers = val
+	} else {
+		fmt.Println("[ERROR] : incomplete of tracker response not of type int64")
+	}
+
+	if peerList, ok := peers.([]any); ok {
+		// fmt.Println("[DEBUG PRINT] PEER LIST : ", peerList)
+		for _, peerListItem := range peerList {
+			// fmt.Println("[DEBUG PRINT] PEERLISTITEM : ", peerListItem)
+			if peerMap, ok := peerListItem.(map[string]any); ok {
+				ip, ok := peerMap["ip"].(string)
+				// fmt.Println("[DEBUG PRINT] IP : ", peerMap["ip"])
+				// fmt.Println("[DEBUG PRINT] PORT : ", peerMap["port"])
+				if !ok {
+					fmt.Println("[ERROR] ip not of type string from tracker response")
+				}
+				port, ok := peerMap["port"].(int64)
+				if !ok {
+					fmt.Println("[ERROR] port not of type integer from tracker response")
+				}
+				client.peers = append(client.peers, Peer{
+					ip:   net.ParseIP(ip),
+					port: port,
+				})
+			}
+		}
+	} else {
+		fmt.Println("[ERROR] Wrong data type in peerList")
+	}
+
+	fmt.Println("[LOG] Updated Client Peers from tracker Response")
+
 }
 
 func StartTorrent(metaInfoFilePath string, destinationFilePath string) {
@@ -97,17 +166,16 @@ func StartTorrent(metaInfoFilePath string, destinationFilePath string) {
 
 	populateInitialTrackerRequestParams(trackerRequest, metaInfo, client)
 
-	fmt.Printf("INFO RAW BYTES : % x\n", metaInfo.GetRawInfo())
-	fmt.Printf("INFO HASH string: %q\n", metaInfo.GetInfoHash())
-	fmt.Printf("INFO HASH bytes: % x\n", trackerRequest.infoHash)
-	fmt.Printf("INFO HASH string: %q\n", trackerRequest.infoHash)
-	fmt.Println("PORT:", client.port)
-
 	trackerRequestURL, err := trackerRequest.GetURLEncodedRequestString(metaInfo)
 	if err != nil {
 		panic(err)
 	}
 
-	sendTrackerRequest(&trackerRequestURL)
+	sendTrackerRequest(&trackerRequestURL, client)
+
+	// fmt.Println(len(client.peers))
+	// for _, peer := range client.peers {
+	// 	fmt.Println(peer)
+	// }
 
 }
