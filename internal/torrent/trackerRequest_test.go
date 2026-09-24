@@ -38,7 +38,7 @@ func TestGetURLEncodedRequestString(t *testing.T) {
 		panic(err)
 	}
 	client := NewClient()
-	peerIdBytes := client.GetPeerId()
+	peerIdBytes := client.clientId
 	peerId := string(peerIdBytes[:])
 	port := 8080
 	uploaded := 1024

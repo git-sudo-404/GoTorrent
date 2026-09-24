@@ -27,31 +27,34 @@ package torrent
 import (
 	"crypto/sha1"
 	"fmt"
+	"net"
 	"os"
 	"time"
 )
 
-type RemotePeer struct {
-	PeerAddress
-	peerId         [20]byte
-	amChoking      int32 // This client is choking the peer
-	amInterested   int32 //  This client is interested in the peer
-	peerChoking    int32 // Peer is choking this client
-	peerInterested int32 // Peer is interested in this client
+type Peer struct {
+	ip   net.IP
+	port int64
 }
 
 type Client struct {
-	peerId      [20]byte
-	PeerAddress // ip & port of the client
-	remotePeers []RemotePeer
-	port        int64
+	clientId        [20]byte
+	port            int64
+	peers           []Peer
+	trackerInterval int64
+	completePeers   int64
+	incompletePeers int64
 }
 
 func NewClient() *Client {
 
 	return &Client{
-		peerId: generateClientPeerId(),
-		port:   6881,
+		clientId:        generateClientPeerId(),
+		port:            6881,
+		peers:           []Peer{},
+		trackerInterval: -1,
+		completePeers:   -1,
+		incompletePeers: -1,
 	}
 }
 
@@ -69,8 +72,4 @@ func generateClientPeerId() [20]byte {
 
 	copy(peerId[8:], hash[:12])
 	return peerId
-}
-
-func (c *Client) GetPeerId() [20]byte {
-	return c.peerId
 }
