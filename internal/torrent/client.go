@@ -44,12 +44,14 @@ type Client struct {
 	peerId      [20]byte
 	PeerAddress // ip & port of the client
 	remotePeers []RemotePeer
+	port        int64
 }
 
 func NewClient() *Client {
 
 	return &Client{
 		peerId: generateClientPeerId(),
+		port:   6881,
 	}
 }
 

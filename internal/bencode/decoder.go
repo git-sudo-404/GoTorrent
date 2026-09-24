@@ -373,3 +373,9 @@ func (d *decoder) getRawInfoBytes() ([]byte, error) {
 	}
 	return rawInfo, nil
 }
+
+func RawInfoBytes(ior io.Reader) ([]byte, error) {
+	br := bufio.NewReader(ior)
+	decoder := &decoder{br}
+	return decoder.getRawInfoBytes()
+}

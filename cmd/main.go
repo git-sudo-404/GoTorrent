@@ -31,9 +31,5 @@ import (
 
 func main() {
 	metaInfoFilePath := os.Args[1]
-	MetaInfo, err := torrent.CreateMetaInfoFromFile(metaInfoFilePath)
-	if err != nil {
-		panic(err)
-	}
-
+	torrent.StartTorrent(metaInfoFilePath, "")
 }

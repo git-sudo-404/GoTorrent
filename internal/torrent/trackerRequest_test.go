@@ -48,7 +48,7 @@ func TestGetURLEncodedRequestString(t *testing.T) {
 	noPeerId := 1
 	event := STARTED
 
-	trackerRequest := CreateNewTrackerRequest().
+	trackerRequest := NewTrackerRequest().
 		SetInfoHash(metaInfo).
 		SetPeerId(peerId).
 		SetPort(int64(port)).

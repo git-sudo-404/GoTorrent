@@ -25,7 +25,7 @@
 package torrent
 
 import (
-	"bufio"
+	"crypto/sha1"
 	"fmt"
 	bencode "gotorrent/internal/bencode"
 	"os"
@@ -65,9 +65,15 @@ func checkAnnounceListPresenceAndType(metaInfoDict map[string]any) ([][]string, 
 	return result, true, nil
 }
 
-func getRawInfoHashFromMetaInfoFile(metaInfoFilePath string) ([]byte, error) {
+func getRawInfoFromMetaInfoFile(metaInfoFilePath string) ([]byte, error) {
 	var rawInfo []byte
-	rawMetaInfoBytes, err := os.ReadFile(metaInfoFilePath)
+	rawMetaInfoBytes, err := os.Open(metaInfoFilePath)
+	if err != nil {
+		return nil, err
+	}
+	defer rawMetaInfoBytes.Close()
+
+	rawInfo, err = bencode.RawInfoBytes(rawMetaInfoBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -174,6 +180,14 @@ func CreateMetaInfoFromFile(filePath string) (*MetaInfo, error) {
 	}
 	if present {
 		metaInfo.SetEncoding(encoding)
+	}
+
+	if rawInfo, err := getRawInfoFromMetaInfoFile(filePath); err == nil {
+		metaInfo.SetRawInfo(rawInfo)
+		infoHash := sha1.Sum(rawInfo)
+		metaInfo.SetInfoHash(infoHash)
+	} else {
+		panic(err)
 	}
 
 	return metaInfo, nil

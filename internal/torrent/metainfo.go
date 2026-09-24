@@ -54,7 +54,7 @@ type MetaInfo struct {
 	//info dictionary (here, single file torrent)
 	info
 	infoHash     [20]byte    // 20 byte SHA-1 hash of the raw bencoded info dict from the metaInfo file (.torrent) to be added along every tracker request
-	rawInfo      string      // raw info string from the .torrent file
+	rawInfo      []byte      // raw info string from the .torrent file
 	announce     string      // The announce URL of the tracker (string)
 	announceList *[][]string //(optional) this is an extention to the official specification, offering backwards-compatibility. (list of lists of strings).
 	creationDate *int64      //  (optional) the creation time of the torrent, in standard UNIX epoch format (integer, seconds since 1-Jan-1970 00:00:00 UTC)
@@ -71,7 +71,7 @@ func NewMetaInfo() *MetaInfo {
 			name:        "",
 			length:      0,
 		},
-		rawInfo:  "",
+		rawInfo:  []byte{},
 		infoHash: [20]byte{},
 		announce: "",
 	}
@@ -137,7 +137,7 @@ func (mi *MetaInfo) SetInfoHash(infoHash [20]byte) *MetaInfo {
 	return mi
 }
 
-func (mi *MetaInfo) SetInfoRaw(rawInfo string) *MetaInfo {
+func (mi *MetaInfo) SetRawInfo(rawInfo []byte) *MetaInfo {
 	mi.rawInfo = rawInfo
 	return mi
 }
@@ -204,7 +204,7 @@ func (mi *MetaInfo) GetEncoding() (string, error) {
 	return *mi.encoding, nil
 }
 
-func (mi *MetaInfo) GetInfoRaw() string {
+func (mi *MetaInfo) GetRawInfo() []byte {
 	return mi.rawInfo
 }
 

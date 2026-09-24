@@ -40,6 +40,16 @@ type TrackerResponse struct {
 	peers       []PeerAddress
 }
 
+func NewTrackerResponse() *TrackerResponse {
+	return &TrackerResponse{
+		interval:   1,
+		trackerId:  "",
+		complete:   0,
+		incomplete: 0,
+		peers:      []PeerAddress{},
+	}
+}
+
 func (tr *TrackerResponse) SetPeers(peers []PeerAddress) *TrackerResponse {
 	tr.peers = peers
 	return tr
