@@ -26,10 +26,14 @@ package torrent
 
 import (
 	"bufio"
+	"encoding/binary"
 	"fmt"
 	"gotorrent/internal/bencode"
+	"io"
 	"net"
 	"net/http"
+	"strconv"
+	"sync"
 	"time"
 )
 
@@ -151,6 +155,157 @@ func sendTrackerRequest(trackerRequestURL *string, client *Client) {
 
 }
 
+func intitaiteHandshakeWithPeers(client *Client, metaInfo *MetaInfo) {
+	fmt.Println("[LOG] Initiating Peer Handshake ...")
+	peerHandshakeRequest := NewPeerHandshakeRequest()
+
+	pstr := []byte("BitTorrent protocol") //NOTE: This string is not arbitrary
+	reserved := make([]byte, 8)
+	info_hash := metaInfo.GetInfoHash()
+	peer_id := client.clientId
+
+	var wg sync.WaitGroup
+
+	peerHandshakeRequest.SetPstr(pstr)
+	peerHandshakeRequest.SetReserved([8]byte(reserved))
+	peerHandshakeRequest.SetInfoHash(info_hash)
+	peerHandshakeRequest.SetPeerId(peer_id)
+
+	peerHandshakeRequestBytes := peerHandshakeRequest.Serialize()
+
+	for peerIndex, peer := range client.peers {
+		wg.Add(1)
+		go func() {
+			conn, err := net.Dial("tcp", net.JoinHostPort(peer.ip.String(), strconv.Itoa(int(peer.port))))
+			if err != nil {
+				fmt.Println("[ERROR] Handshake Failed:", err)
+				return
+			}
+			client.peers[peerIndex].conn = conn
+			defer func() {
+				wg.Done()
+			}()
+			fmt.Printf("[LOG] Initiating Handshake with  Peer : %s on Port : %d\n", peer.ip.String(), peer.port)
+			n, err := conn.Write(peerHandshakeRequestBytes)
+			if err != nil {
+				fmt.Println("[ERROR] Write Failed", err)
+				return
+			}
+			fmt.Println("[DEBUG] Sent", n, "bytes")
+			readBuffer := make([]byte, 68)
+			n, err = conn.Read(readBuffer)
+			if err != nil {
+				fmt.Println("[ERROR] Read Failed", err)
+				return
+			}
+			fmt.Println("[DEBUG] Recieved", n, "bytes")
+
+			peerInfoHash := readBuffer[28:48]
+			peerId := readBuffer[48:68]
+
+			for i := 0; i < 20; i++ {
+				if peerInfoHash[i] != metaInfo.infoHash[i] {
+					fmt.Println("[ERROR] Info Hash Not matching with peer")
+					return
+				}
+			}
+
+			copy(client.peers[peerIndex].peerId[:], peerId[:])
+			fmt.Println("[LOG] Recieved Peer Id : ", client.peers[peerIndex].peerId)
+
+			bitfieldLen := (len(metaInfo.pieces) + 7) / 8
+			client.peers[peerIndex].bitfield = make([]byte, bitfieldLen)
+
+		}()
+	}
+
+	wg.Wait()
+
+}
+
+// func getPeerBitFeilds(client *Client) {
+// 	for peerIndex, _ := range client.peers {
+//
+// 		peer := &client.peers[peerIndex]
+//
+// 		lenBuffer := [4]byte{}
+// 		_, err := io.ReadFull(peer.conn, lenBuffer[:])
+// 		if err != nil {
+// 			fmt.Println("[ERROR] Error reading the length Prefix of the bitfield message", err)
+// 		}
+//
+// 		messageId := [1]byte{}
+// 		io.ReadFull(peer.conn, messageId[:])
+//
+// 		if binary.BigEndian.Uint32(messageId[:]) != 5 {
+// 			return
+// 		}
+//
+// 		length := binary.BigEndian.Uint32(lenBuffer[:])
+// 		bitfieldRawBytes := make([]byte, length)
+//
+// 		_, err = io.ReadFull(peer.conn, bitfieldRawBytes)
+// 		if err != nil {
+// 			fmt.Println("[ERROR] Error while reading bitfield message from peer", err)
+// 		}
+//
+// 	}
+// }
+
+func handlePeer(wg *sync.WaitGroup, peer *Peer) {
+	defer func() {
+		wg.Done()
+	}()
+
+	for {
+
+		// read the 4 byte message len
+		msgLengthBytes := [4]byte{}
+		io.ReadFull(peer.conn, msgLengthBytes[:])
+		msgLength := binary.BigEndian.Uint32(msgLengthBytes[:])
+
+		if msgLength == 0 { // keep-alive msg
+			peer.alive = time.Now()
+		}
+
+		msgIdBytes := [1]byte{}
+		io.ReadFull(peer.conn, msgIdBytes[:])
+		msgId := binary.BigEndian.Uint32(msgIdBytes[:])
+
+		switch msgLength {
+		case 1:
+			switch msgId {
+			case 0: // choke
+				peer.am_choking = true
+			case 1: // unchoke
+				peer.am_choking = false
+			case 2: // interested
+				peer.peer_interested = true
+			case 3: // not-interested
+				peer.peer_interested = false
+			}
+		case 5:
+			if msgId == 4 { // have msg
+				pieceIndexBytes := [4]byte{}
+				io.ReadFull(peer.conn, pieceIndexBytes[:])
+				pieceIndex := binary.BigEndian.Uint32(pieceIndexBytes[:])
+				setBit(int64(pieceIndex), peer.bitfield)
+			}
+		}
+
+	}
+
+}
+
+func startPeerMessaging(client *Client, metaInfo *MetaInfo) {
+	var wg sync.WaitGroup
+	for peerIndex, _ := range client.peers {
+		wg.Add(1)
+		go handlePeer(&wg, &client.peers[peerIndex])
+	}
+	wg.Wait()
+}
+
 func StartTorrent(metaInfoFilePath string, destinationFilePath string) {
 
 	fmt.Println("[LOG] Starting Torrent ...")
@@ -173,9 +328,9 @@ func StartTorrent(metaInfoFilePath string, destinationFilePath string) {
 
 	sendTrackerRequest(&trackerRequestURL, client)
 
-	// fmt.Println(len(client.peers))
-	// for _, peer := range client.peers {
-	// 	fmt.Println(peer)
-	// }
+	//NOTE: This function handles only the client peers's handshake , need to implement the logic to handle the incoming handshake requests from other peers
+	intitaiteHandshakeWithPeers(client, metaInfo)
+
+	startPeerMessaging(client, metaInfo)
 
 }

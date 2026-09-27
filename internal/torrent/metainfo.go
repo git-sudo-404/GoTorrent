@@ -39,9 +39,9 @@ import (
 
 type info struct {
 	// fields common to both single file & mulit file torrent
-	pieceLength int64  //  number of bytes in each piece (integer)
-	pieces      string // consisting of the concatenation of all 20-byte SHA1 hash values, one per piece (byte string, i.e. not urlencoded)
-	private     *int64 // (optional) this field is an integer. If it is set to "1", the client MUST publish its presence
+	pieceLength int64      //  number of bytes in each piece (integer)
+	pieces      [][20]byte // consisting of the concatenation of all 20-byte SHA1 hash values, one per piece (byte string, i.e. not urlencoded)
+	private     *int64     // (optional) this field is an integer. If it is set to "1", the client MUST publish its presence
 	//to get other peers ONLY via the trackers explicitly described in the metainfo file. If this field is set to "0" or is not present,
 	//the client may obtain peer from other means, e.g. PEX peer exchange, dht. Here, "private" may be read as "no external peer source".
 
@@ -67,7 +67,7 @@ func NewMetaInfo() *MetaInfo {
 	return &MetaInfo{
 		info: info{
 			pieceLength: 0,
-			pieces:      "",
+			pieces:      [][20]byte{},
 			name:        "",
 			length:      0,
 		},
@@ -82,7 +82,7 @@ func (mi *MetaInfo) SetPieceLength(pieceLength int64) *MetaInfo {
 	return mi
 }
 
-func (mi *MetaInfo) SetPieces(pieces string) *MetaInfo {
+func (mi *MetaInfo) SetPieces(pieces [][20]byte) *MetaInfo {
 	mi.pieces = pieces
 	return mi
 }
@@ -146,7 +146,7 @@ func (mi *MetaInfo) GetPieceLength() (int64, error) {
 	return mi.pieceLength, nil
 }
 
-func (mi *MetaInfo) GetPieces() (string, error) {
+func (mi *MetaInfo) GetPieces() ([][20]byte, error) {
 	return mi.pieces, nil
 }
 

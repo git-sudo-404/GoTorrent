@@ -60,3 +60,7 @@ func (phr *PeerHandshakeRequest) Serialize() []byte {
 	copy(buf[1+len(phr.pstr)+28:], phr.peerId[:])
 	return buf
 }
+
+func NewPeerHandshakeRequest() *PeerHandshakeRequest {
+	return &PeerHandshakeRequest{}
+}

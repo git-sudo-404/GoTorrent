@@ -33,8 +33,16 @@ import (
 )
 
 type Peer struct {
-	ip   net.IP
-	port int64
+	ip              net.IP
+	port            int64
+	peerId          [20]byte
+	conn            net.Conn
+	bitfield        []byte
+	am_choking      bool
+	am_interested   bool
+	peer_choking    bool
+	peer_interested bool
+	alive           time.Time
 }
 
 type Client struct {
