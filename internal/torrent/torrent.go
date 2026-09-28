@@ -53,7 +53,7 @@ func populateInitialTrackerRequestParams(tr *TrackerRequest, mi *MetaInfo, clien
 func sendTrackerRequest(trackerRequestURL *string, client *Client) {
 
 	httpClient := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout: 15 * time.Second,
 	}
 	req, err := http.NewRequest(http.MethodGet, *trackerRequestURL, nil)
 	if err != nil {
@@ -211,7 +211,7 @@ func intitaiteHandshakeWithPeers(client *Client, metaInfo *MetaInfo) {
 			}
 
 			copy(client.peers[peerIndex].peerId[:], peerId[:])
-			fmt.Println("[LOG] Recieved Peer Id : ", client.peers[peerIndex].peerId)
+			// fmt.Println("[LOG] Recieved Peer Id : ", client.peers[peerIndex].peerId)
 
 			bitfieldLen := (len(metaInfo.pieces) + 7) / 8
 			client.peers[peerIndex].bitfield = make([]byte, bitfieldLen)
@@ -252,7 +252,7 @@ func intitaiteHandshakeWithPeers(client *Client, metaInfo *MetaInfo) {
 // 	}
 // }
 
-func handlePeer(wg *sync.WaitGroup, peer *Peer) {
+func handlePeer(wg *sync.WaitGroup, peer *Peer, client *Client) {
 	defer func() {
 		wg.Done()
 	}()
@@ -266,11 +266,12 @@ func handlePeer(wg *sync.WaitGroup, peer *Peer) {
 
 		if msgLength == 0 { // keep-alive msg
 			peer.alive = time.Now()
+			continue
 		}
 
 		msgIdBytes := [1]byte{}
 		io.ReadFull(peer.conn, msgIdBytes[:])
-		msgId := binary.BigEndian.Uint32(msgIdBytes[:])
+		msgId := msgIdBytes[0]
 
 		switch msgLength {
 		case 1:
@@ -291,6 +292,38 @@ func handlePeer(wg *sync.WaitGroup, peer *Peer) {
 				pieceIndex := binary.BigEndian.Uint32(pieceIndexBytes[:])
 				setBit(int64(pieceIndex), peer.bitfield)
 			}
+		case 13:
+			if msgId == 6 { // request msg
+				reqMsgPayload := [12]byte{}
+				io.ReadFull(peer.conn, reqMsgPayload[:])
+				index := binary.BigEndian.Uint32(reqMsgPayload[0:4])
+				begin := binary.BigEndian.Uint32(reqMsgPayload[4:8])
+				length := binary.BigEndian.Uint32(reqMsgPayload[8:12])
+
+				peer.conn.Write(client.blocks[index][begin : begin+length])
+			} else if msgId == 8 {
+				cancelMsgPayload := make([]byte, msgLength-1)
+				io.ReadFull(peer.conn, cancelMsgPayload)
+				//TODO: implement the cancel logic
+			}
+		default:
+			switch msgId {
+			case 5: // bitfield msg
+				fmt.Println("[LOG] Recieved a bitfield Msg")
+				bitfieldBytes := make([]byte, msgLength)
+				io.ReadFull(peer.conn, bitfieldBytes[:])
+				peer.bitfield = bitfieldBytes
+			case 7: // piece ms
+				pieceMsgPayload := make([]byte, msgLength-1) // since , 1 byte is already consumed in msgId
+				io.ReadFull(peer.conn, pieceMsgPayload)
+				index := binary.BigEndian.Uint32(pieceMsgPayload[0:4])
+				begin := binary.BigEndian.Uint32(pieceMsgPayload[4:8])
+				blockLen := msgLength - (1 + 4 + 4)
+				// client.blocks[index][begin : blockLen+begin] = pieceMsgPayload[8:]
+				for i := range blockLen {
+					client.blocks[index][begin+i] = pieceMsgPayload[8+i]
+				}
+			}
 		}
 
 	}
@@ -298,10 +331,11 @@ func handlePeer(wg *sync.WaitGroup, peer *Peer) {
 }
 
 func startPeerMessaging(client *Client, metaInfo *MetaInfo) {
+	fmt.Println("[LOG] Starting Peer Messagin...")
 	var wg sync.WaitGroup
 	for peerIndex, _ := range client.peers {
 		wg.Add(1)
-		go handlePeer(&wg, &client.peers[peerIndex])
+		go handlePeer(&wg, &client.peers[peerIndex], client)
 	}
 	wg.Wait()
 }
@@ -316,7 +350,7 @@ func StartTorrent(metaInfoFilePath string, destinationFilePath string) {
 		panic(err)
 	}
 
-	client := NewClient()
+	client := NewClient(metaInfo)
 	trackerRequest := NewTrackerRequest()
 
 	populateInitialTrackerRequestParams(trackerRequest, metaInfo, client)

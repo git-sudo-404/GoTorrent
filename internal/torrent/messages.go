@@ -33,7 +33,7 @@ func setBit(pieceIndex int64, bitfield []byte) {
 	bitfield[byteIndex] |= 1 << bitIndex
 }
 
-func UnsetBit(pieceIndex int64, bitfield []byte) {
+func unsetBit(pieceIndex int64, bitfield []byte) {
 	byteIndex := pieceIndex / 8
 	bitIndex := pieceIndex % 8
 	bitfield[byteIndex] ^= 1 << bitIndex

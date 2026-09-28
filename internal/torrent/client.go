@@ -52,9 +52,18 @@ type Client struct {
 	trackerInterval int64
 	completePeers   int64
 	incompletePeers int64
+	blocks          [][]byte
 }
 
-func NewClient() *Client {
+func NewClient(metaInfo *MetaInfo) *Client {
+
+	pieceLength, _ := metaInfo.GetPieceLength()
+	pieceNums := metaInfo.length / pieceLength
+
+	blocks := make([][]byte, pieceNums)
+	for i := range blocks {
+		blocks[i] = make([]byte, pieceLength)
+	}
 
 	return &Client{
 		clientId:        generateClientPeerId(),
@@ -63,6 +72,7 @@ func NewClient() *Client {
 		trackerInterval: -1,
 		completePeers:   -1,
 		incompletePeers: -1,
+		blocks:          blocks,
 	}
 }
 
