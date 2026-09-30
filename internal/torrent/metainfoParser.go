@@ -81,6 +81,16 @@ func getRawInfoFromMetaInfoFile(metaInfoFilePath string) ([]byte, error) {
 	return rawInfo, nil
 }
 
+func parsePieces(piecesString string) [][20]byte {
+	fmt.Println("[LOG]Parsing pieces from info")
+	piecesBytes := []byte(piecesString)
+	pieces := [][20]byte{}
+	for i := 0; i+20 <= len(piecesString); i += 20 {
+		pieces = append(pieces, [20]byte(piecesBytes[i:i+20]))
+	}
+	return pieces
+}
+
 func CreateMetaInfoFromFile(filePath string) (*MetaInfo, error) {
 	metaInfo := NewMetaInfo()
 
@@ -110,11 +120,11 @@ func CreateMetaInfoFromFile(filePath string) (*MetaInfo, error) {
 	}
 	metaInfo.SetPieceLength(pieceLength)
 
-	pieces, err := checkFieldPresenceAndType[string](info, "pieces")
+	piecesString, err := checkFieldPresenceAndType[string](info, "pieces")
 	if err != nil {
 		return nil, err
 	}
-	metaInfo.SetPieces(pieces)
+	metaInfo.SetPieces(parsePieces(piecesString))
 
 	private, present, err := checkOptionalFieldPresenceAndType[int64](info, "private")
 	if err != nil {

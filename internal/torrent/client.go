@@ -29,12 +29,23 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
 	"time"
 )
 
 type Peer struct {
-	ip   net.IP
-	port int64
+	ip              net.IP
+	port            int64
+	peerId          [20]byte
+	conn            net.Conn
+	bitfield        []byte
+	am_choking      bool
+	am_interested   bool
+	peer_choking    bool
+	peer_interested bool
+	alive           time.Time
+	mu              sync.Mutex
+	canReqBlocks    chan struct{}
 }
 
 type Client struct {
@@ -44,9 +55,25 @@ type Client struct {
 	trackerInterval int64
 	completePeers   int64
 	incompletePeers int64
+	blocks          [][]byte
+	blockOffset     map[int]int
+	uploadedBytes   uint64
+	downloadedBytes uint64
 }
 
-func NewClient() *Client {
+func NewClient(metaInfo *MetaInfo) *Client {
+
+	pieceLength, _ := metaInfo.GetPieceLength()
+	pieceNums := metaInfo.length / pieceLength
+
+	blocks := make([][]byte, pieceNums)
+	for i := range blocks {
+		blocks[i] = make([]byte, pieceLength)
+	}
+	blockOffset := make(map[int]int)
+	for i := 0; i < int(pieceNums); i++ {
+		blockOffset[i] = 0
+	}
 
 	return &Client{
 		clientId:        generateClientPeerId(),
@@ -55,6 +82,10 @@ func NewClient() *Client {
 		trackerInterval: -1,
 		completePeers:   -1,
 		incompletePeers: -1,
+		blocks:          blocks,
+		blockOffset:     blockOffset,
+		downloadedBytes: 0,
+		uploadedBytes:   0,
 	}
 }
 
