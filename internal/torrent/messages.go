@@ -39,6 +39,12 @@ func unsetBit(pieceIndex int64, bitfield []byte) {
 	bitfield[byteIndex] ^= 1 << bitIndex
 }
 
+func hasBit(pieceIndex int64, bitfield []byte) bool {
+	byteIndex := pieceIndex / 8
+	bitIndex := pieceIndex % 8
+	return bitfield[byteIndex]&(1<<bitIndex) == 1
+}
+
 // keep-alive: <len=0000>
 // The keep-alive message is a message with zero bytes, specified with the length prefix set to zero. There is no message ID and no payload.
 func NewKeepAliveMessage() [4]byte {

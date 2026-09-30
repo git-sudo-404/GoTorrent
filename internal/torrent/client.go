@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -43,6 +44,8 @@ type Peer struct {
 	peer_choking    bool
 	peer_interested bool
 	alive           time.Time
+	mu              sync.Mutex
+	canReqBlocks    chan struct{}
 }
 
 type Client struct {
@@ -53,6 +56,9 @@ type Client struct {
 	completePeers   int64
 	incompletePeers int64
 	blocks          [][]byte
+	blockOffset     map[int]int
+	uploadedBytes   uint64
+	downloadedBytes uint64
 }
 
 func NewClient(metaInfo *MetaInfo) *Client {
@@ -64,6 +70,10 @@ func NewClient(metaInfo *MetaInfo) *Client {
 	for i := range blocks {
 		blocks[i] = make([]byte, pieceLength)
 	}
+	blockOffset := make(map[int]int)
+	for i := 0; i < int(pieceNums); i++ {
+		blockOffset[i] = 0
+	}
 
 	return &Client{
 		clientId:        generateClientPeerId(),
@@ -73,6 +83,9 @@ func NewClient(metaInfo *MetaInfo) *Client {
 		completePeers:   -1,
 		incompletePeers: -1,
 		blocks:          blocks,
+		blockOffset:     blockOffset,
+		downloadedBytes: 0,
+		uploadedBytes:   0,
 	}
 }
 
