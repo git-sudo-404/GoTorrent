@@ -24,18 +24,18 @@ package urlencoder
 
 import "testing"
 
-// func TestURLEncoderString1(t *testing.T) {
-// 	e := NewURLEncoder()
-// 	testString := "ABC-abc_123.~ /?&=+"
-// 	e.EncodeString(testString)
-//
-// 	got := e.String()
-// 	want := "ABC-abc_123.~%20%2F%3F%26%3D%2B"
-//
-// 	if got != want {
-// 		t.Errorf("\nGOT  : %s\nWANT : %s", got, want)
-// 	}
-// }
+func TestURLEncoderString1(t *testing.T) {
+	e := NewURLEncoder()
+	testString := "ABC-abc_123.~ /?&=+"
+	e.EncodeString(testString)
+
+	got := e.String()
+	want := "ABC-abc_123.~%20%2F%3F%26%3D%2B"
+
+	if got != want {
+		t.Errorf("\nGOT  : %s\nWANT : %s", got, want)
+	}
+}
 
 func TestURLEncoderByte1(t *testing.T) {
 	e := NewURLEncoder()
