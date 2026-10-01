@@ -31,6 +31,32 @@ import (
 	"os"
 )
 
+func checkFieldPresenceAndType[T any](dict map[string]any, field string) (T, error) {
+	var zero T
+	value, ok := dict[field]
+	if !ok {
+		return zero, fmt.Errorf("Meta-Info missing needed field : %s", field)
+	}
+	if v, ok := value.(T); !ok {
+		return zero, fmt.Errorf("Undesired field value type  , Field : %s ", field)
+	} else {
+		return v, nil
+	}
+}
+
+func checkOptionalFieldPresenceAndType[T any](dict map[string]any, field string) (T, bool, error) {
+	var zero T
+	value, ok := dict[field]
+	if !ok {
+		return zero, false, nil
+	}
+	if v, ok := value.(T); !ok {
+		return zero, false, fmt.Errorf("Undesired field value type , Field : %s ", field)
+	} else {
+		return v, true, nil
+	}
+}
+
 // since announce-list is optional this function returns an err if the announce list key is not found in the metaInfoDict
 func checkAnnounceListPresenceAndType(metaInfoDict map[string]any) ([][]string, bool, error) {
 
