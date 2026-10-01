@@ -25,9 +25,7 @@
 package torrent
 
 import (
-	"crypto/sha1"
 	"fmt"
-	"gotorrent/internal/bencode"
 	urlencoder "gotorrent/internal/url-encoder"
 	"testing"
 )
@@ -63,17 +61,9 @@ func TestGetURLEncodedRequestString(t *testing.T) {
 
 	baseURL, _ := metaInfo.GetAnnounce()
 
-	infoDict, err := metaInfo.GetInfoDict()
-	if err != nil {
-		panic(err)
-	}
-
 	// enode the info dict
-	encoder := bencode.CreateNewEncoder()
-	encoder.Encode(infoDict)
-	infoBencoded := encoder.Bytes()
 
-	infoHashed := sha1.Sum(infoBencoded)
+	infoHashed := metaInfo.GetInfoHash()
 
 	urlencoder := urlencoder.NewURLEncoder()
 	urlencoder.EncodeBytes(infoHashed[:])

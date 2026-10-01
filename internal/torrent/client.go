@@ -29,9 +29,42 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"sync"
 	"time"
 )
+
+// NOTE: additional functions like getCompletePieces(), getIncompletePieces(), or getPartialPieces(), etc./ might shall be implemented as needed
+type PieceBuffer struct {
+	block              [][]byte
+	offset             []int
+	bitfield           []byte // represents the completely downloaded pieces if the bit is set
+	uploadedBytes      uint64
+	downloadedBytes    uint64
+	pieceToPeer        [][20]byte // represents piece -> peerId mapping denoting a particular piece has been requested by the mentioned peer
+	downloadInProgress []byte     // represents whether or not a piece is being downloaded block by block by a peer , it is set as long as the peer connection is alive and is being actively downloaded
+}
+
+func NewPieceBuffer(metaInfo *MetaInfo) *PieceBuffer {
+	pieceLength, _ := metaInfo.GetPieceLength()
+	pieceNums := metaInfo.length / pieceLength
+
+	blocks := make([][]byte, pieceNums)
+	for i := range blocks {
+		blocks[i] = make([]byte, pieceLength)
+	}
+	offset := make([]int, pieceNums)
+	for i := 0; i < int(pieceNums); i++ {
+		offset[i] = 0
+	}
+	return &PieceBuffer{
+		block:              blocks,
+		offset:             offset,
+		bitfield:           make([]byte, pieceNums),
+		uploadedBytes:      0,
+		downloadedBytes:    0,
+		pieceToPeer:        make([][20]byte, pieceNums),
+		downloadInProgress: make([]byte, pieceNums),
+	}
+}
 
 type Peer struct {
 	ip              net.IP
@@ -44,8 +77,7 @@ type Peer struct {
 	peer_choking    bool
 	peer_interested bool
 	alive           time.Time
-	mu              sync.Mutex
-	canReqBlocks    chan struct{}
+	reqBlock        chan struct{}
 }
 
 type Client struct {
@@ -55,41 +87,9 @@ type Client struct {
 	trackerInterval int64
 	completePeers   int64
 	incompletePeers int64
-	blocks          [][]byte
-	blockOffset     map[int]int
-	uploadedBytes   uint64
-	downloadedBytes uint64
 }
 
 func NewClient(metaInfo *MetaInfo) *Client {
-
-	pieceLength, _ := metaInfo.GetPieceLength()
-	pieceNums := metaInfo.length / pieceLength
-
-	blocks := make([][]byte, pieceNums)
-	for i := range blocks {
-		blocks[i] = make([]byte, pieceLength)
-	}
-	blockOffset := make(map[int]int)
-	for i := 0; i < int(pieceNums); i++ {
-		blockOffset[i] = 0
-	}
-
-	return &Client{
-		clientId:        generateClientPeerId(),
-		port:            6881,
-		peers:           []Peer{},
-		trackerInterval: -1,
-		completePeers:   -1,
-		incompletePeers: -1,
-		blocks:          blocks,
-		blockOffset:     blockOffset,
-		downloadedBytes: 0,
-		uploadedBytes:   0,
-	}
-}
-
-func generateClientPeerId() [20]byte {
 	var peerId [20]byte
 	prefix := []byte("-GT0001-")
 
@@ -102,5 +102,13 @@ func generateClientPeerId() [20]byte {
 	hash := sha1.Sum([]byte(data))
 
 	copy(peerId[8:], hash[:12])
-	return peerId
+
+	return &Client{
+		clientId:        peerId,
+		port:            6881,
+		peers:           []Peer{},
+		trackerInterval: -1,
+		completePeers:   -1,
+		incompletePeers: -1,
+	}
 }
