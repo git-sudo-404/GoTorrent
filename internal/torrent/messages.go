@@ -82,3 +82,19 @@ func NewHaveMessage(pieceIndex int32) [9]byte {
 	binary.BigEndian.PutUint32(msg[5:], uint32(pieceIndex))
 	return msg
 }
+
+func NewHandshakeRequest(metaInfo *MetaInfo, client *Client) [68]byte {
+	pstr := []byte("BitTorrent protocol") //NOTE: This string is not arbitrary
+	reserved := make([]byte, 8)
+	info_hash := metaInfo.GetInfoHash()
+	peer_id := client.clientId
+
+	peerHandshakeRequestMsg := [68]byte{}
+	peerHandshakeRequestMsg[0] = uint8(19)
+	copy(peerHandshakeRequestMsg[1:20], pstr)
+	copy(peerHandshakeRequestMsg[20:28], reserved)
+	copy(peerHandshakeRequestMsg[28:48], info_hash[:])
+	copy(peerHandshakeRequestMsg[48:68], peer_id[:])
+
+	return peerHandshakeRequestMsg
+}

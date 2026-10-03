@@ -72,7 +72,7 @@ func sendTrackerRequestAndHandleResponse(client *Client, metaInfo *MetaInfo) {
 	if resp.StatusCode != http.StatusOK {
 		fmt.Println("Error tracker server return : ", resp.Body)
 	}
-	// fmt.Println("[LOG] STATUS:", resp.Status)
+	fmt.Println("[LOG] STATUS:", resp.Status)
 
 	buf := bufio.NewReader(resp.Body)
 
@@ -122,7 +122,11 @@ func sendTrackerRequestAndHandleResponse(client *Client, metaInfo *MetaInfo) {
 		fmt.Println("[ERROR] : incomplete of tracker response not of type int64")
 	}
 
+	fmt.Printf("[DEBUG] peers type: %T\n", peers)
+	fmt.Printf("[DEBUG] peers value: %#v\n", peers)
+
 	if peerList, ok := peers.([]any); ok {
+		fmt.Println("[LOG] Parsing peers address from peers map")
 		for _, peerListItem := range peerList {
 			if peerMap, ok := peerListItem.(map[string]any); ok {
 				ip, ok := peerMap["ip"].(string)
@@ -142,20 +146,40 @@ func sendTrackerRequestAndHandleResponse(client *Client, metaInfo *MetaInfo) {
 				})
 			}
 		}
+	} else if peerString, ok := peers.(string); ok {
+		fmt.Println("[LOG] Parsing peers address from Peer String")
+		if len(peerString)%6 != 0 {
+			fmt.Println("[ERROR] peerString returned by Tracker is incomplete")
+			os.Exit(1)
+		}
+		offset := 0
+		bitfieldLen := (len(metaInfo.pieces) + 7) / 8
+		for {
+			if offset >= len(peerString) {
+				break
+			}
+			port, _ := strconv.ParseInt(peerString[offset+4:offset+6], 10, 16)
+			client.peers = append(client.peers, Peer{
+				ip:       net.ParseIP(peerString[offset : offset+4]),
+				port:     int64(port),
+				reqBlock: make(chan struct{}),
+				bitfield: make([]byte, bitfieldLen),
+			})
+			offset += 6
+		}
 	} else {
 		fmt.Println("[ERROR] Wrong data type in peerList")
 	}
 	fmt.Println("[LOG] Updated Client Peers from tracker Response")
 }
 
-func sendHandshakeRequest(wg *sync.WaitGroup, peer *Peer, metaInfo *MetaInfo, peerHandshakeRequestMsg [68]byte) {
+func sendHandshakeRequest(wg *sync.WaitGroup, peer *Peer, metaInfo *MetaInfo, peerHandshakeRequestMsg [68]byte, handshakeRetriesChan chan [20]byte) {
 
 	defer wg.Done()
 
 	conn, err := net.Dial("tcp", net.JoinHostPort(peer.ip.String(), strconv.Itoa(int(peer.port))))
 	if err != nil {
 		fmt.Println("[ERROR] Handshake Failed:", err)
-		return
 	}
 
 	peer.conn = conn
@@ -164,6 +188,7 @@ func sendHandshakeRequest(wg *sync.WaitGroup, peer *Peer, metaInfo *MetaInfo, pe
 	n, err := conn.Write(peerHandshakeRequestMsg[:])
 	if err != nil {
 		fmt.Println("[ERROR] Write Failed", err)
+		handshakeRetriesChan <- peer.peerId
 		return
 	}
 	fmt.Println("[DEBUG] Sent", n, "bytes")
@@ -190,28 +215,69 @@ func sendHandshakeRequest(wg *sync.WaitGroup, peer *Peer, metaInfo *MetaInfo, pe
 	fmt.Println("[LOG] Recieved Peer Id ")
 }
 
+func retryHandhshake(retryWG *sync.WaitGroup, peer *Peer, handshakeRequestMsg [68]byte, retryCount int, removePeerChan chan [20]byte) {
+
+	for i := 0; i < retryCount; i++ {
+		n, err := peer.conn.Write(handshakeRequestMsg[:])
+		if err == nil && n == 68 {
+			return
+		}
+	}
+	removePeerChan <- peer.peerId
+}
+
+func handFailedHandshakes(handshakeRetriesChan chan [20]byte, metaInfo *MetaInfo, client *Client) {
+	var retryWG sync.WaitGroup
+	removePeerChan := make(chan [20]byte, len(client.peers))
+	handshakeRequestMsg := NewHandshakeRequest(metaInfo, client)
+	for failedPeerId := range handshakeRetriesChan {
+		var peer *Peer
+		for peerIndex, _ := range client.peers {
+			for i := 0; i < 20; i++ {
+				if client.peers[peerIndex].peerId[i] != failedPeerId[i] {
+					goto checkNextPeer
+				}
+			}
+			peer = &client.peers[peerIndex]
+			break
+		checkNextPeer:
+		}
+		retryHandhshake(&retryWG, peer, handshakeRequestMsg, 3, removePeerChan)
+	}
+	for failedPeerId := range removePeerChan {
+		for peerIndex, _ := range client.peers {
+			for i := 0; i < 20; i++ {
+				if client.peers[peerIndex].peerId[i] != failedPeerId[i] {
+					goto nextPeer
+				}
+			}
+			// just a faster way to remove the failed peer from the slice , by replacing it with the last element and then slicing off the last element
+			client.peers[peerIndex] = client.peers[len(client.peers)-1]
+			client.peers = client.peers[:len(client.peers)-1]
+			fmt.Println("[LOG] Removed Peer from Client Peers List after 3 failed handshake attempts")
+			break
+		nextPeer:
+		}
+	}
+}
+
 func sendHandshakeRequestToAllPeers(client *Client, metaInfo *MetaInfo) {
 	fmt.Println("[LOG] Initiating Peer Handshake ...")
 
-	pstr := []byte("BitTorrent protocol") //NOTE: This string is not arbitrary
-	reserved := make([]byte, 8)
-	info_hash := metaInfo.GetInfoHash()
-	peer_id := client.clientId
-
-	peerHandshakeRequestMsg := [68]byte{}
-	peerHandshakeRequestMsg[0] = uint8(19)
-	copy(peerHandshakeRequestMsg[1:20], pstr)
-	copy(peerHandshakeRequestMsg[20:28], reserved)
-	copy(peerHandshakeRequestMsg[28:48], info_hash[:])
-	copy(peerHandshakeRequestMsg[48:68], peer_id[:])
+	handshakeRequest := NewHandshakeRequest(metaInfo, client)
 
 	var wg sync.WaitGroup
+	handshakeRetriesChan := make(chan [20]byte, len(client.peers))
+
+	//TODO: Add logic to handle the failing handshakes , increase the timeouts , do 3 retries , use cahnnels to collect the failing peers alone and retry them
 
 	for peerIndex, _ := range client.peers {
 		peer := &client.peers[peerIndex]
 		wg.Add(1)
-		go sendHandshakeRequest(&wg, peer, metaInfo, peerHandshakeRequestMsg)
+		go sendHandshakeRequest(&wg, peer, metaInfo, handshakeRequest, handshakeRetriesChan)
 	}
+
+	go handFailedHandshakes(handshakeRetriesChan, metaInfo, client)
 
 	wg.Wait()
 }
@@ -274,6 +340,7 @@ func handlePeer(peerMessagingWG *sync.WaitGroup, peer *Peer, metaInfo *MetaInfo,
 				bitfieldBytes := make([]byte, msgLength-1)
 				io.ReadFull(peer.conn, bitfieldBytes[:])
 				peer.bitfield = bitfieldBytes
+				fmt.Println("[LOG] Starting to request blocks from peer after a bitfield msg...")
 				peer.reqBlock <- struct{}{}
 			case 7: // piece msg
 				fmt.Println("[LOG] Recieved a piece message...")
