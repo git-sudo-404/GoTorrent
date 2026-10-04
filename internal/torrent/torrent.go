@@ -26,6 +26,7 @@ package torrent
 
 import (
 	"bufio"
+	"crypto/sha1"
 	"encoding/binary"
 	"fmt"
 	"gotorrent/internal/bencode"
@@ -282,6 +283,41 @@ func sendHandshakeRequestToAllPeers(client *Client, metaInfo *MetaInfo) {
 	wg.Wait()
 }
 
+func writeToPeerWithRetries(peer *Peer, msg []byte, retryCount int) {
+	for i := 0; i < retryCount; i++ {
+		n, err := peer.conn.Write(msg)
+		if err != nil || n < len(msg) {
+			fmt.Println("[LOG] An error occured while writing to peer , retrying again ...")
+			continue
+		}
+		fmt.Println("[LOG] Sent ", len(msg), " bytes to peer")
+		return
+	}
+}
+
+func serveRequestedBlockToPeer(reqMsg [12]byte, peer *Peer, pieceBuffer *PieceBuffer) {
+
+	pieceIndex := binary.BigEndian.Uint32(reqMsg[0:4])
+	blockBegin := binary.BigEndian.Uint32(reqMsg[4:8])
+	blockLen := binary.BigEndian.Uint32(reqMsg[8:12])
+	piecePayload := pieceBuffer.block[pieceIndex][blockBegin : blockBegin+blockLen]
+	pieceMessage := make([]byte, blockLen+4+1)
+	binary.BigEndian.AppendUint32(pieceMessage[0:4], blockLen+1)
+	pieceMessage[4] = 7
+	copy(pieceMessage[5:5+blockLen], piecePayload)
+
+	writeToPeerWithRetries(peer, piecePayload, 3)
+
+}
+
+func verifyPieceHash(pieceBuffer *PieceBuffer, pieceIndex int, metaInfo *MetaInfo) bool {
+	pieceSha1Sum := sha1.Sum(pieceBuffer.block[pieceIndex])
+	if pieceSha1Sum != metaInfo.pieces[pieceIndex] {
+		return false
+	}
+	return true
+}
+
 func handlePeer(peerMessagingWG *sync.WaitGroup, peer *Peer, metaInfo *MetaInfo, pieceBuffer *PieceBuffer) {
 	defer peerMessagingWG.Done()
 	for {
@@ -320,14 +356,13 @@ func handlePeer(peerMessagingWG *sync.WaitGroup, peer *Peer, metaInfo *MetaInfo,
 			}
 		case 13:
 			if msgId == 6 { // request msg
-				fmt.Println("[LOG] Reecieved a request message ...")
-				reqMsgPayload := [12]byte{}
-				io.ReadFull(peer.conn, reqMsgPayload[:])
-				// index := binary.BigEndian.Uint32(reqMsgPayload[0:4])
-				// begin := binary.BigEndian.Uint32(reqMsgPayload[4:8])
-				// length := binary.BigEndian.Uint32(reqMsgPayload[8:12])
-				// // piecePayload := blocks[index][begin : begin+length]
-				// pieceMessage := make([]byte,length + 4 + 1)
+				fmt.Println("[LOG] Recieved a request message ...")
+				reqMsg := [12]byte{}
+				io.ReadFull(peer.conn, reqMsg[:])
+				if peer.peer_choking {
+					continue
+				}
+				serveRequestedBlockToPeer(reqMsg, peer, pieceBuffer)
 			} else if msgId == 8 {
 				cancelMsgPayload := make([]byte, msgLength-1)
 				io.ReadFull(peer.conn, cancelMsgPayload)
@@ -343,7 +378,7 @@ func handlePeer(peerMessagingWG *sync.WaitGroup, peer *Peer, metaInfo *MetaInfo,
 				fmt.Println("[LOG] Starting to request blocks from peer after a bitfield msg...")
 				peer.reqBlock <- struct{}{}
 			case 7: // piece msg
-				fmt.Println("[LOG] Recieved a piece message...")
+				// fmt.Println("[LOG] Recieved a piece message...")
 				pieceMsgPayload := make([]byte, msgLength-1) // since , 1 byte is already consumed in msgId
 				io.ReadFull(peer.conn, pieceMsgPayload)
 				pieceIndex := binary.BigEndian.Uint32(pieceMsgPayload[0:4])
@@ -353,16 +388,28 @@ func handlePeer(peerMessagingWG *sync.WaitGroup, peer *Peer, metaInfo *MetaInfo,
 					pieceBuffer.block[pieceIndex][blockBegin+i] = pieceMsgPayload[8+i]
 				}
 				pieceBuffer.offset[int(pieceIndex)] = int(blockBegin + blockLen)
-				fmt.Println("[LOG] Piece successfully recieved : ", blockLen, " bytes")
+				// fmt.Println("[LOG] Piece successfully recieved : ", blockLen, " bytes")
 				pieceBuffer.downloadedBytes += uint64(blockLen)
 				if pieceBuffer.offset[pieceIndex] == int(metaInfo.pieceLength) {
+					if !verifyPieceHash(pieceBuffer, int(pieceIndex), metaInfo) {
+						fmt.Println("[LOG] Downloaded Piece Hash didn't match , discarding it ...")
+						pieceBuffer.offset[pieceIndex] = 0
+						pieceBuffer.downloadedBytes -= uint64(metaInfo.pieceLength)
+						pieceBuffer.pieceToPeer[pieceIndex] = [20]byte{}
+						return
+					}
 					fmt.Println("[LOG] piece ", pieceIndex, " successfully downloaded")
 					setBit(int64(pieceIndex), pieceBuffer.bitfield)
 				} else {
-					fmt.Println("[LOG] Requesting next block...")
+					// fmt.Println("[LOG] Requesting next block...")
 				}
 				peer.reqBlock <- struct{}{}
-				fmt.Println("[LOG] Total Downloaded Bytes : ", pieceBuffer.downloadedBytes, " Remaining : ", metaInfo.length-int64(pieceBuffer.downloadedBytes))
+				// fmt.Println("[LOG] Total Downloaded Bytes : ", pieceBuffer.downloadedBytes, " Remaining : ", metaInfo.length-int64(pieceBuffer.downloadedBytes))
+				fmt.Println("[LOG] ", float64(pieceBuffer.downloadedBytes)/float64(metaInfo.length)*100, "% downlaoded")
+				if pieceBuffer.downloadedBytes == uint64(metaInfo.length) {
+					fmt.Println("[LOG] File Downloaded....")
+					pieceBuffer.writeBlcoksToFile(metaInfo)
+				}
 			}
 		}
 	}
@@ -383,6 +430,9 @@ func handleMessageFromPeers(torrentWG *sync.WaitGroup, client *Client, metaInfo 
 func downloadFromPeer(downloadBlocksWG *sync.WaitGroup, peer *Peer, metaInfo *MetaInfo, pieceBuffer *PieceBuffer) {
 	defer downloadBlocksWG.Done()
 	for range peer.reqBlock {
+		if peer.am_choking {
+			continue
+		}
 		for i := 0; i < len(peer.bitfield); i++ {
 			for j := 0; j < 8; j++ {
 				pieceIndex := uint32(i*8 + j)
@@ -415,7 +465,7 @@ func downloadFromPeer(downloadBlocksWG *sync.WaitGroup, peer *Peer, metaInfo *Me
 				if err != nil {
 					fmt.Println("[ERROR] Error when writing req msg", err)
 				}
-				fmt.Println("[LOG] Sent a piece req message : ", reqMsgBytes)
+				// fmt.Println("[LOG] Sent a piece req message : ", reqMsgBytes)
 				goto waitUntilNextReqCanBeSent
 			}
 		}
