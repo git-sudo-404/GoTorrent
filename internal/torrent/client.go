@@ -25,6 +25,7 @@
 package torrent
 
 import (
+	"bufio"
 	"crypto/sha1"
 	"fmt"
 	"net"
@@ -64,6 +65,20 @@ func NewPieceBuffer(metaInfo *MetaInfo) *PieceBuffer {
 		pieceToPeer:        make([][20]byte, pieceNums),
 		downloadInProgress: make([]byte, pieceNums),
 	}
+}
+
+func (pb *PieceBuffer) writeBlcoksToFile(metaInfo *MetaInfo) {
+	fileName := metaInfo.name
+	file, err := os.Create(fileName)
+	if err != nil {
+		fmt.Println("[ERROR] Error creating the downloaded file")
+		os.Exit(1)
+	}
+	writer := bufio.NewWriter(file)
+	for pieceIndex, _ := range pb.block {
+		writer.Write(pb.block[pieceIndex])
+	}
+	fmt.Println("[LOG] File Downloaded...")
 }
 
 type Peer struct {
